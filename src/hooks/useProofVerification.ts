@@ -17,7 +17,7 @@ import { useWillow } from './useWillow';
  * manual verification for advanced use cases.
  */
 export function useProofVerification() {
-  const { client } = useWillow();
+  const { config } = useWillow();
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState<Error | null>(null);
 
@@ -87,11 +87,11 @@ export function useProofVerification() {
    * Get the verified root hash from consensus
    */
   const getVerifiedRootHash = useCallback(async (): Promise<string> => {
-    if (!client) {
+    if (!config) {
       throw new Error('Client not initialized');
     }
 
-    const response = await fetch(`${client.config.apiUrl}/state/root-hash/verified`);
+    const response = await fetch(`${config.apiUrl}/state/root-hash/verified`);
     if (!response.ok) {
       throw new Error('Failed to fetch verified root hash');
     }
@@ -102,7 +102,7 @@ export function useProofVerification() {
     }
 
     return data.data.root_hash;
-  }, [client]);
+  }, [config]);
 
   /**
    * Compare a proof's root hash with consensus
@@ -155,14 +155,14 @@ export function useProofVerification() {
  * options for the current client.
  */
 export function useProofConfig() {
-  const { client } = useWillow();
+  const { config } = useWillow();
   const [currentOptions, setCurrentOptions] = useState<ProofVerificationOptions | null>(null);
 
   /**
    * Update proof verification options
    */
   const updateProofOptions = useCallback((options: ProofVerificationOptions) => {
-    if (!client) {
+    if (!config) {
       throw new Error('Client not initialized');
     }
 
@@ -171,7 +171,7 @@ export function useProofConfig() {
     const { configureProofVerification } = require('@willow/sdk');
     configureProofVerification(options);
     setCurrentOptions(options);
-  }, [client]);
+  }, [config]);
 
   /**
    * Enable server-assisted verification
@@ -179,9 +179,9 @@ export function useProofConfig() {
   const enableServerAssisted = useCallback((apiUrl?: string) => {
     updateProofOptions({
       serverAssisted: true,
-      apiUrl: apiUrl || client?.config.apiUrl || 'http://localhost:3031'
+      apiUrl: apiUrl || config?.apiUrl || 'http://localhost:3031'
     });
-  }, [client, updateProofOptions]);
+  }, [config, updateProofOptions]);
 
   /**
    * Set expected root hash for verification

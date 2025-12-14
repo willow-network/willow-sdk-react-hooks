@@ -8,6 +8,7 @@ export function useWillow() {
 
   return {
     client: context.client,
+    config: context.config,
     session: context.session,
     isAuthenticated: context.isAuthenticated,
     isLoading: context.isLoading,

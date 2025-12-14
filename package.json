@@ -35,9 +35,8 @@
     "swr": "^2.2.4"
   },
   "devDependencies": {
-    "@willow/sdk": "file:../willow-sdk",
+    "@willow/sdk": "file:../willow-typescript",
     "@testing-library/react": "^14.1.2",
-    "@testing-library/react-hooks": "^8.0.1",
     "@types/jest": "^29.5.11",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",

@@ -3,6 +3,7 @@ import { WillowClient, WillowConfig, Session, DidDocument, ProofVerificationOpti
 
 interface WillowContextValue {
   client: WillowClient | null;
+  config: WillowConfig | null;
   session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -88,9 +89,11 @@ export function WillowProvider({ config, children, autoConnect = false, proofVer
   }, [client, config.did]);
 
   const logout = useCallback(() => {
+    if (client) {
+      client.auth.clearSession();
+    }
     setSession(null);
-    // In a real implementation, we might want to clear session from client too
-  }, []);
+  }, [client]);
 
   const registerDid = useCallback(async (didDocument: DidDocument): Promise<DidDocument> => {
     if (!client) {
@@ -112,6 +115,7 @@ export function WillowProvider({ config, children, autoConnect = false, proofVer
 
   const value: WillowContextValue = {
     client,
+    config,
     session,
     isAuthenticated: !!session && session.expires_at > Date.now() / 1000,
     isLoading,

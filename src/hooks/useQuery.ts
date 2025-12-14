@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import useSWR, { SWRConfiguration } from 'swr';
 import { QueryRequest, QueryResponse } from '@willow/sdk';
 import { useWillow } from './useWillow';
@@ -41,7 +41,7 @@ export function useQuery(
     ? ['query', appId, datasetId, JSON.stringify(query)]
     : null;
 
-  const { data, error, isLoading, isValidating, mutate } = useSWR<QueryResponse>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<QueryResponse | null>(
     swrKey,
     fetcher,
     {
@@ -62,8 +62,10 @@ export function useQuery(
     refetch,
     // Convenience accessors
     documents: data?.documents || [],
-    total: data?.total || 0,
-    hasMore: data ? (data.offset + data.limit) < data.total : false,
+    total: data?.total ?? 0,
+    hasMore: data && data.total != null && data.offset != null && data.limit != null
+      ? (data.offset + data.limit) < data.total
+      : false,
   };
 }
 
@@ -105,7 +107,7 @@ export function usePaginatedQuery(
     ...result,
     page,
     pageSize,
-    totalPages: result.data ? Math.ceil(result.data.total / pageSize) : 0,
+    totalPages: result.data?.total ? Math.ceil(result.data.total / pageSize) : 0,
     nextPage,
     previousPage,
     goToPage,
@@ -113,6 +115,3 @@ export function usePaginatedQuery(
     hasPreviousPage: page > 0,
   };
 }
-
-// Add missing imports
-import { useState, useMemo } from 'react';
