@@ -22,6 +22,11 @@ export type {
 export { useProof } from './hooks/useProof';
 export { useQuery, usePaginatedQuery } from './hooks/useQuery';
 export { useProofVerification, useProofConfig } from './hooks/useProofVerification';
+export {
+  useHistoricalQuery,
+  useCheckpointStateRoot,
+  useHistoricalQueryMutation,
+} from './hooks/useHistoricalQuery';
 
 // Token hooks
 export {
@@ -87,6 +92,9 @@ export type {
   QueryResponse,
   ProofVerificationOptions,
   ProofVerificationResult,
+  HistoricalQueryRequest,
+  HistoricalQueryResponse,
+  CheckpointInfo,
 } from '@willow/sdk';
 
 // Re-export DEVNET_TEST_ACCOUNT from SDK
