@@ -99,3 +99,33 @@ export type {
 
 // Re-export DEVNET_TEST_ACCOUNT from SDK
 export { DEVNET_TEST_ACCOUNT } from '@willow/sdk';
+
+// Computed Fields hooks
+export {
+  useComputedFieldRegistry,
+  useComputedQuery,
+  usePaginatedComputedQuery,
+  useApplyComputedFields,
+  useApplyComputedFieldsToResponse,
+} from './hooks/useComputedFields';
+
+// Re-export computed fields from SDK
+export {
+  ComputedFieldRegistry,
+  applyComputedFields,
+  applyComputedFieldsToResponse,
+  globalComputedFieldRegistry,
+  // Pre-built field sets for common protocols
+  UNISWAP_V2_PAIR_FIELDS,
+  UNISWAP_V2_TOKEN_FIELDS,
+  UNISWAP_V2_AGGREGATION_FIELDS,
+  GENERIC_AMM_PAIR_FIELDS,
+  LENDING_PROTOCOL_FIELDS,
+  LP_SHARE_FIELDS,
+} from '@willow/sdk';
+
+export type {
+  ComputedFieldDefinition,
+  ComputedFieldSet,
+  ComputeFunction,
+} from '@willow/sdk';
