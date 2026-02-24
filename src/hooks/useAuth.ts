@@ -6,7 +6,7 @@ import { useWillow } from './useWillow';
  * Hook for authentication operations
  */
 export function useAuth() {
-  const { isAuthenticated, session, login, logout, registerDid } = useWillow();
+  const { isAuthenticated, hasIdentity, setIdentity, clearIdentity, registerDid } = useWillow();
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generateAndRegister = useCallback(async (): Promise<{
@@ -24,8 +24,8 @@ export function useAuth() {
       // Register DID
       await registerDid(didDocument);
 
-      // Login
-      await login(wallet.privateKey, didDocument.publicKeys[0].id);
+      // Set identity for per-request signing
+      setIdentity(didDocument.id, wallet.privateKey, didDocument.publicKeys[0].id);
 
       return {
         did: didDocument.id,
@@ -36,13 +36,13 @@ export function useAuth() {
     } finally {
       setIsGenerating(false);
     }
-  }, [registerDid, login]);
+  }, [registerDid, setIdentity]);
 
   return {
     isAuthenticated,
-    session,
-    login,
-    logout,
+    hasIdentity,
+    setIdentity,
+    clearIdentity,
     generateAndRegister,
     isGenerating,
   };

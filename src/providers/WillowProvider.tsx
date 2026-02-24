@@ -1,16 +1,16 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { WillowClient, WillowConfig, Session, DidDocument, ProofVerificationOptions } from '@willow/sdk';
+import { WillowClient, WillowConfig, DidDocument, ProofVerificationOptions } from '@willow/sdk';
 
 interface WillowContextValue {
   client: WillowClient | null;
   config: WillowConfig | null;
-  session: Session | null;
   isAuthenticated: boolean;
+  hasIdentity: boolean;
   isLoading: boolean;
   error: Error | null;
   initialize: (privateKey?: string, publicKeyId?: string) => Promise<void>;
-  login: (privateKey: string, publicKeyId?: string) => Promise<void>;
-  logout: () => void;
+  setIdentity: (did: string, privateKey: string, publicKeyId: string) => void;
+  clearIdentity: () => void;
   registerDid: (didDocument: DidDocument) => Promise<DidDocument>;
 }
 
@@ -25,7 +25,6 @@ export interface WillowProviderProps {
 
 export function WillowProvider({ config, children, autoConnect = false, proofVerificationOptions }: WillowProviderProps) {
   const [client, setClient] = useState<WillowClient | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -38,12 +37,6 @@ export function WillowProvider({ config, children, autoConnect = false, proofVer
 
     const newClient = new WillowClient(clientConfig);
     setClient(newClient);
-
-    // Check for existing session
-    const existingSession = newClient.auth.getSession();
-    if (existingSession) {
-      setSession(existingSession);
-    }
 
     // Auto-connect if configured
     if (autoConnect && config.privateKey && config.did) {
@@ -59,8 +52,6 @@ export function WillowProvider({ config, children, autoConnect = false, proofVer
 
     try {
       await client.init(privateKey, publicKeyId);
-      const newSession = client.auth.getSession();
-      setSession(newSession || null);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -69,30 +60,17 @@ export function WillowProvider({ config, children, autoConnect = false, proofVer
     }
   }, [client]);
 
-  const login = useCallback(async (privateKey: string, publicKeyId?: string) => {
-    if (!client || !config.did) {
-      throw new Error('Client not initialized or DID not provided');
+  const setIdentity = useCallback((did: string, privateKey: string, publicKeyId: string) => {
+    if (!client) {
+      throw new Error('Client not initialized');
     }
+    client.auth.setIdentity(did, privateKey, publicKeyId);
+  }, [client]);
 
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const newSession = await client.auth.login(config.did, privateKey, publicKeyId || '');
-      setSession(newSession);
-    } catch (err) {
-      setError(err as Error);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [client, config.did]);
-
-  const logout = useCallback(() => {
+  const clearIdentity = useCallback(() => {
     if (client) {
-      client.auth.clearSession();
+      client.auth.setIdentity('', '', '');
     }
-    setSession(null);
   }, [client]);
 
   const registerDid = useCallback(async (didDocument: DidDocument): Promise<DidDocument> => {
@@ -116,13 +94,13 @@ export function WillowProvider({ config, children, autoConnect = false, proofVer
   const value: WillowContextValue = {
     client,
     config,
-    session,
-    isAuthenticated: !!session && session.expires_at > Date.now() / 1000,
+    isAuthenticated: !!client?.auth.hasIdentity(),
+    hasIdentity: !!client?.auth.hasIdentity(),
     isLoading,
     error,
     initialize,
-    login,
-    logout,
+    setIdentity,
+    clearIdentity,
     registerDid,
   };
 

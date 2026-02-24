@@ -7,26 +7,29 @@ import { WillowClient } from '@willow/sdk';
 // Mock the SDK
 jest.mock('@willow/sdk', () => ({
   WillowClient: jest.fn().mockImplementation(() => ({
-    isAuthenticated: jest.fn().mockReturnValue(false),
-    getSession: jest.fn().mockReturnValue(null),
-    authenticate: jest.fn(),
-    registerDid: jest.fn(),
-    clearSession: jest.fn(),
-  })),
-  generateDid: jest.fn().mockReturnValue({
-    did: 'did:willow:test:123',
-    privateKey: 'a'.repeat(64),
-    publicKeyId: 'did:willow:test:123#key-1',
-    didDocument: {
-      id: 'did:willow:test:123',
-      public_keys: [{
-        id: 'did:willow:test:123#key-1',
-        key_type: 'Ed25519VerificationKey2020',
-        public_key_hex: 'abc123',
-      }],
-      created: Date.now(),
-      updated: Date.now(),
+    auth: {
+      hasIdentity: jest.fn().mockReturnValue(false),
+      setIdentity: jest.fn(),
+      signRequest: jest.fn(),
+      getAuthHeaders: jest.fn(),
+      getDid: jest.fn(),
     },
+    registerDid: jest.fn(),
+    init: jest.fn(),
+  })),
+  generateWallet: jest.fn().mockReturnValue({
+    privateKey: 'a'.repeat(64),
+    publicKey: 'abc123',
+  }),
+  createDidFromWallet: jest.fn().mockReturnValue({
+    id: 'did:willow:test:123',
+    publicKeys: [{
+      id: 'did:willow:test:123#key-1',
+      key_type: 'Ed25519VerificationKey2020',
+      public_key_hex: 'abc123',
+    }],
+    created: Date.now(),
+    updated: Date.now(),
   }),
 }));
 
@@ -37,10 +40,10 @@ describe('useAuth', () => {
     </WillowProvider>
   );
 
-  let mockClient: jest.Mocked<WillowClient>;
+  let mockClient: any;
 
   beforeEach(() => {
-    mockClient = new WillowClient() as jest.Mocked<WillowClient>;
+    mockClient = new WillowClient() as any;
     (WillowClient as jest.Mock).mockImplementation(() => mockClient);
   });
 
@@ -52,134 +55,113 @@ describe('useAuth', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     expect(result.current.isAuthenticated).toBe(false);
-    expect(result.current.session).toBeNull();
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.hasIdentity).toBe(false);
+    expect(result.current.isGenerating).toBe(false);
   });
 
-  it('should authenticate with existing credentials', async () => {
-    const mockSession = {
-      did: 'did:willow:test:123',
-      token: 'test-token',
-      expires_at: Date.now() + 3600000,
-    };
-
-    mockClient.authenticate.mockResolvedValueOnce(mockSession);
-    mockClient.isAuthenticated.mockReturnValue(true);
-    mockClient.getSession.mockReturnValue(mockSession);
+  it('should set identity with credentials', () => {
+    mockClient.auth.hasIdentity.mockReturnValue(true);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await act(async () => {
-      await result.current.authenticate(
+    act(() => {
+      result.current.setIdentity(
         'did:willow:test:123',
         'a'.repeat(64),
         'did:willow:test:123#key-1'
       );
     });
 
-    expect(result.current.isAuthenticated).toBe(true);
-    expect(result.current.session).toEqual(mockSession);
-    expect(mockClient.authenticate).toHaveBeenCalledWith(
+    expect(mockClient.auth.setIdentity).toHaveBeenCalledWith(
       'did:willow:test:123',
       'a'.repeat(64),
       'did:willow:test:123#key-1'
     );
   });
 
-  it('should handle authentication errors', async () => {
-    mockClient.authenticate.mockRejectedValueOnce(new Error('Invalid signature'));
-
-    const { result } = renderHook(() => useAuth(), { wrapper });
-
-    await expect(act(async () => {
-      await result.current.authenticate('did:test', 'key', 'keyId');
-    })).rejects.toThrow('Invalid signature');
-
-    expect(result.current.isAuthenticated).toBe(false);
-  });
-
   it('should generate and register new DID', async () => {
-    const mockSession = {
-      did: 'did:willow:test:123',
-      token: 'test-token',
-      expires_at: Date.now() + 3600000,
-    };
-
     mockClient.registerDid.mockResolvedValueOnce({
       id: 'did:willow:test:123',
-      public_keys: [],
+      publicKeys: [{
+        id: 'did:willow:test:123#key-1',
+        key_type: 'Ed25519VerificationKey2020',
+        public_key_hex: 'abc123',
+      }],
       created: Date.now(),
       updated: Date.now(),
     });
-    mockClient.authenticate.mockResolvedValueOnce(mockSession);
-    mockClient.isAuthenticated.mockReturnValue(true);
-    mockClient.getSession.mockReturnValue(mockSession);
+    mockClient.auth.hasIdentity.mockReturnValue(true);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
     await act(async () => {
       const authResult = await result.current.generateAndRegister();
       expect(authResult.did).toBe('did:willow:test:123');
+      expect(authResult.privateKey).toBe('a'.repeat(64));
+      expect(authResult.publicKey).toBe('abc123');
     });
 
     expect(mockClient.registerDid).toHaveBeenCalled();
-    expect(mockClient.authenticate).toHaveBeenCalled();
-    expect(result.current.isAuthenticated).toBe(true);
+    expect(mockClient.auth.setIdentity).toHaveBeenCalledWith(
+      'did:willow:test:123',
+      'a'.repeat(64),
+      'did:willow:test:123#key-1'
+    );
   });
 
-  it('should handle logout', async () => {
-    // Setup authenticated state
-    const mockSession = {
-      did: 'did:willow:test:123',
-      token: 'test-token',
-      expires_at: Date.now() + 3600000,
-    };
-    mockClient.isAuthenticated.mockReturnValue(true);
-    mockClient.getSession.mockReturnValue(mockSession);
-
-    const { result, rerender } = renderHook(() => useAuth(), { wrapper });
-
-    // Verify authenticated
-    expect(result.current.isAuthenticated).toBe(true);
-
-    // Logout
-    mockClient.isAuthenticated.mockReturnValue(false);
-    mockClient.getSession.mockReturnValue(null);
-
-    act(() => {
-      result.current.logout();
-    });
-
-    expect(mockClient.clearSession).toHaveBeenCalled();
-    expect(result.current.isAuthenticated).toBe(false);
-    expect(result.current.session).toBeNull();
-  });
-
-  it('should handle loading state', async () => {
-    let resolveAuth: (value: any) => void;
-    const authPromise = new Promise((resolve) => {
-      resolveAuth = resolve;
-    });
-    mockClient.authenticate.mockReturnValueOnce(authPromise as any);
+  it('should handle clearIdentity', () => {
+    // Setup identity state
+    mockClient.auth.hasIdentity.mockReturnValue(true);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    expect(result.current.isLoading).toBe(false);
+    // Verify has identity
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.hasIdentity).toBe(true);
+
+    // Clear identity
+    mockClient.auth.hasIdentity.mockReturnValue(false);
 
     act(() => {
-      result.current.authenticate('did:test', 'key', 'keyId');
+      result.current.clearIdentity();
     });
 
-    expect(result.current.isLoading).toBe(true);
+    // After clearing, setIdentity is called with empty strings
+    expect(mockClient.auth.setIdentity).toHaveBeenCalledWith('', '', '');
+  });
+
+  it('should track isGenerating state during generateAndRegister', async () => {
+    let resolveRegister: (value: any) => void;
+    const registerPromise = new Promise((resolve) => {
+      resolveRegister = resolve;
+    });
+    mockClient.registerDid.mockReturnValueOnce(registerPromise);
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    expect(result.current.isGenerating).toBe(false);
+
+    let generatePromise: Promise<any>;
+    act(() => {
+      generatePromise = result.current.generateAndRegister();
+    });
+
+    expect(result.current.isGenerating).toBe(true);
 
     await act(async () => {
-      resolveAuth!({
-        did: 'did:test',
-        token: 'token',
-        expires_at: Date.now() + 3600000,
+      resolveRegister!({
+        id: 'did:willow:test:123',
+        publicKeys: [{
+          id: 'did:willow:test:123#key-1',
+          key_type: 'Ed25519VerificationKey2020',
+          public_key_hex: 'abc123',
+        }],
+        created: Date.now(),
+        updated: Date.now(),
       });
+      await generatePromise!;
     });
 
-    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isGenerating).toBe(false);
   });
 });

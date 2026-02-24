@@ -9,13 +9,13 @@ export function useWillow() {
   return {
     client: context.client,
     config: context.config,
-    session: context.session,
     isAuthenticated: context.isAuthenticated,
+    hasIdentity: context.hasIdentity,
     isLoading: context.isLoading,
     error: context.error,
     initialize: context.initialize,
-    login: context.login,
-    logout: context.logout,
+    setIdentity: context.setIdentity,
+    clearIdentity: context.clearIdentity,
     registerDid: context.registerDid,
   };
 }

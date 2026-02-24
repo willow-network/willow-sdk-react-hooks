@@ -8,12 +8,14 @@ import { SWRConfig } from 'swr';
 // Mock the SDK
 jest.mock('@willow/sdk', () => ({
   WillowClient: jest.fn().mockImplementation(() => ({
-    isAuthenticated: jest.fn().mockReturnValue(true),
-    getSession: jest.fn().mockReturnValue({
-      did: 'did:willow:test:123',
-      token: 'test-token',
-      expires_at: Date.now() + 3600000,
-    }),
+    auth: {
+      hasIdentity: jest.fn().mockReturnValue(true),
+      setIdentity: jest.fn(),
+      signRequest: jest.fn(),
+      getAuthHeaders: jest.fn(),
+      getDid: jest.fn().mockReturnValue('did:willow:test:123'),
+    },
+    init: jest.fn(),
     data: {
       get: jest.fn(),
     },
@@ -61,8 +63,7 @@ describe('useData', () => {
   });
 
   it('should not fetch when not authenticated', () => {
-    mockClient.isAuthenticated.mockReturnValue(false);
-    mockClient.getSession.mockReturnValue(null);
+    mockClient.auth.hasIdentity.mockReturnValue(false);
 
     const { result } = renderHook(
       () => useData('app1', 'dataset1', 'key1'),

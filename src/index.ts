@@ -81,7 +81,6 @@ export type {
 export type {
   WillowConfig,
   DidDocument,
-  Session,
   AppRegistration,
   DatasetRegistration,
   RegisterAppRequest,
