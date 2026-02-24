@@ -3,7 +3,7 @@
  *
  * This example demonstrates blockchain indexing features:
  * 1. Query indexed blockchain data via GraphQL
- * 2. List available subgraphs
+ * 2. List available subgroves
  * 3. Check indexer status
  * 4. View verification statistics
  *
@@ -13,7 +13,7 @@
  * Prerequisites:
  * - npm install @willow/react-hooks @willow/sdk
  * - Run a local Willow node with indexing enabled
- * - Have a deployed subgraph
+ * - Have a deployed subgrove
  */
 
 import React, { useState } from 'react';
@@ -21,9 +21,9 @@ import {
   WillowProvider,
   useWillow,
   useAuth,
-  useSubgraphs,
-  useSubgraph,
-  useSubgraphStatus,
+  useSubgroves,
+  useSubgrove,
+  useSubgroveStatus,
   useIndexers,
   useIndexer,
   useGraphQL,
@@ -56,7 +56,7 @@ function AuthenticatedContent({
   did: string;
   onLogout: () => void;
 }) {
-  const [selectedSubgraph, setSelectedSubgraph] = useState<string>('uniswap-v3-mainnet');
+  const [selectedSubgrove, setSelectedSubgrove] = useState<string>('uniswap-v3-mainnet');
   const [customQuery, setCustomQuery] = useState<string>(`query GetRecentSwaps {
   swaps(first: 5, orderBy: timestamp, orderDirection: desc) {
     id
@@ -66,14 +66,14 @@ function AuthenticatedContent({
   }
 }`);
 
-  // List all subgraphs
-  const { subgraphs, isLoading: subgraphsLoading, error: subgraphsError } = useSubgraphs();
+  // List all subgroves
+  const { subgroves, isLoading: subgrovesLoading, error: subgrovesError } = useSubgroves();
 
-  // Get specific subgraph details
-  const { subgraph, isLoading: subgraphLoading } = useSubgraph(selectedSubgraph);
+  // Get specific subgrove details
+  const { subgrove, isLoading: subgroveLoading } = useSubgrove(selectedSubgrove);
 
-  // Get subgraph indexing status
-  const { status: indexingStatus, isLoading: statusLoading } = useSubgraphStatus(selectedSubgraph);
+  // Get subgrove indexing status
+  const { status: indexingStatus, isLoading: statusLoading } = useSubgroveStatus(selectedSubgrove);
 
   // List indexers
   const { indexers, isLoading: indexersLoading } = useIndexers();
@@ -84,10 +84,10 @@ function AuthenticatedContent({
     isLoading: queryLoading,
     error: queryError,
     refetch: refetchQuery,
-  } = useGraphQL(selectedSubgraph, customQuery);
+  } = useGraphQL(selectedSubgrove, customQuery);
 
   // GraphQL mutation hook (for manual queries)
-  const { execute: executeQuery, isExecuting } = useGraphQLMutation(selectedSubgraph);
+  const { execute: executeQuery, isExecuting } = useGraphQLMutation(selectedSubgrove);
 
   // Verification statistics
   const { stats: verificationStats, isLoading: statsLoading } = useVerificationStats();
@@ -114,12 +114,12 @@ function AuthenticatedContent({
         <button onClick={onLogout}>Logout</button>
       </div>
 
-      {/* Subgraph Selector */}
+      {/* Subgrove Selector */}
       <section style={{ marginBottom: '30px' }}>
-        <h2>Select Subgraph</h2>
+        <h2>Select Subgrove</h2>
         <select
-          value={selectedSubgraph}
-          onChange={(e) => setSelectedSubgraph(e.target.value)}
+          value={selectedSubgrove}
+          onChange={(e) => setSelectedSubgrove(e.target.value)}
           style={{ padding: '5px', fontSize: '14px' }}
         >
           <option value="uniswap-v3-mainnet">Uniswap V3 Mainnet</option>
@@ -166,18 +166,18 @@ function AuthenticatedContent({
         )}
       </section>
 
-      {/* List Subgraphs */}
+      {/* List Subgroves */}
       <section style={{ marginBottom: '30px' }}>
-        <h2>2. Available Subgraphs</h2>
-        {subgraphsLoading ? (
-          <p>Loading subgraphs...</p>
-        ) : subgraphsError ? (
-          <p style={{ color: 'red' }}>Error: {subgraphsError.message}</p>
+        <h2>2. Available Subgroves</h2>
+        {subgrovesLoading ? (
+          <p>Loading subgroves...</p>
+        ) : subgrovesError ? (
+          <p style={{ color: 'red' }}>Error: {subgrovesError.message}</p>
         ) : (
           <div>
-            <p>Found {subgraphs.length} subgraphs:</p>
+            <p>Found {subgroves.length} subgroves:</p>
             <ul>
-              {subgraphs.slice(0, 5).map((sg: any) => (
+              {subgroves.slice(0, 5).map((sg: any) => (
                 <li key={sg.id}>
                   <strong>{sg.id}</strong>: {sg.name || 'Unnamed'}
                 </li>
@@ -187,28 +187,28 @@ function AuthenticatedContent({
         )}
       </section>
 
-      {/* Subgraph Details */}
+      {/* Subgrove Details */}
       <section style={{ marginBottom: '30px' }}>
-        <h2>3. Subgraph Details</h2>
-        {subgraphLoading ? (
+        <h2>3. Subgrove Details</h2>
+        {subgroveLoading ? (
           <p>Loading details...</p>
-        ) : subgraph ? (
+        ) : subgrove ? (
           <div style={{ background: '#f5f5f5', padding: '10px' }}>
             <p>
-              <strong>ID:</strong> {subgraph.id}
+              <strong>ID:</strong> {subgrove.id}
             </p>
             <p>
-              <strong>Name:</strong> {subgraph.name}
+              <strong>Name:</strong> {subgrove.name}
             </p>
             <p>
-              <strong>Status:</strong> {subgraph.status}
+              <strong>Status:</strong> {subgrove.status}
             </p>
             <p>
-              <strong>Network:</strong> {subgraph.network}
+              <strong>Network:</strong> {subgrove.network}
             </p>
           </div>
         ) : (
-          <p>Subgraph not found</p>
+          <p>Subgrove not found</p>
         )}
       </section>
 

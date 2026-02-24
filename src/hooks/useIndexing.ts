@@ -3,22 +3,22 @@ import useSWR, { SWRConfiguration } from 'swr';
 import { useWillow } from './useWillow';
 
 // Indexing types (matching Rust SDK)
-export interface SubgraphInfo {
-  subgraph_id: string;
+export interface SubgroveInfo {
+  subgrove_id: string;
   name: string;
   description?: string;
   network: string;
   start_block: number;
   current_block?: number;
-  status: SubgraphStatus;
+  status: SubgroveStatus;
   created_at: number;
   updated_at: number;
 }
 
-export type SubgraphStatus = 'syncing' | 'synced' | 'failed' | 'paused';
+export type SubgroveStatus = 'syncing' | 'synced' | 'failed' | 'paused';
 
-export interface SubgraphIndexingStatus {
-  subgraph_id: string;
+export interface SubgroveIndexingStatus {
+  subgrove_id: string;
   synced: boolean;
   health: 'healthy' | 'unhealthy' | 'failed';
   chains: ChainIndexingStatus[];
@@ -41,7 +41,7 @@ export interface IndexerInfo {
   endpoint: string;
   stake: string;
   status: IndexerStatus;
-  subgraphs_indexed: string[];
+  subgroves_indexed: string[];
   total_queries_served: number;
   uptime_percentage: number;
 }
@@ -68,32 +68,32 @@ export interface VerificationStats {
   average_verification_time_ms: number;
 }
 
-interface UseSubgraphsOptions extends SWRConfiguration {}
+interface UseSubgrovesOptions extends SWRConfiguration {}
 
 /**
- * Hook for listing all available subgraphs
+ * Hook for listing all available subgroves
  */
-export function useSubgraphs(options?: UseSubgraphsOptions) {
+export function useSubgroves(options?: UseSubgrovesOptions) {
   const { config } = useWillow();
 
-  const fetcher = useCallback(async (): Promise<SubgraphInfo[] | null> => {
+  const fetcher = useCallback(async (): Promise<SubgroveInfo[] | null> => {
     if (!config) return null;
 
-    const response = await fetch(`${config.apiUrl}/subgraphs`);
+    const response = await fetch(`${config.apiUrl}/subgroves`);
     if (!response.ok) {
-      throw new Error('Failed to fetch subgraphs');
+      throw new Error('Failed to fetch subgroves');
     }
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch subgraphs');
+      throw new Error(data.error || 'Failed to fetch subgroves');
     }
 
     return data.data || [];
   }, [config]);
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    config ? ['subgraphs'] : null,
+    config ? ['subgroves'] : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -102,7 +102,7 @@ export function useSubgraphs(options?: UseSubgraphsOptions) {
   );
 
   return {
-    subgraphs: data || [],
+    subgroves: data || [],
     error,
     isLoading,
     isValidating,
@@ -111,29 +111,29 @@ export function useSubgraphs(options?: UseSubgraphsOptions) {
 }
 
 /**
- * Hook for fetching a specific subgraph
+ * Hook for fetching a specific subgrove
  */
-export function useSubgraph(subgraphId: string | null, options?: UseSubgraphsOptions) {
+export function useSubgrove(subgroveId: string | null, options?: UseSubgrovesOptions) {
   const { config } = useWillow();
 
-  const fetcher = useCallback(async (): Promise<SubgraphInfo | null> => {
-    if (!config || !subgraphId) return null;
+  const fetcher = useCallback(async (): Promise<SubgroveInfo | null> => {
+    if (!config || !subgroveId) return null;
 
-    const response = await fetch(`${config.apiUrl}/subgraphs/${encodeURIComponent(subgraphId)}`);
+    const response = await fetch(`${config.apiUrl}/subgroves/${encodeURIComponent(subgroveId)}`);
     if (!response.ok) {
-      throw new Error('Failed to fetch subgraph');
+      throw new Error('Failed to fetch subgrove');
     }
 
     const data = await response.json();
     if (!data.success || !data.data) {
-      throw new Error(data.error || 'Subgraph not found');
+      throw new Error(data.error || 'Subgrove not found');
     }
 
     return data.data;
-  }, [config, subgraphId]);
+  }, [config, subgroveId]);
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    config && subgraphId ? ['subgraphs', subgraphId] : null,
+    config && subgroveId ? ['subgroves', subgroveId] : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -142,7 +142,7 @@ export function useSubgraph(subgraphId: string | null, options?: UseSubgraphsOpt
   );
 
   return {
-    subgraph: data,
+    subgrove: data,
     error,
     isLoading,
     isValidating,
@@ -151,29 +151,29 @@ export function useSubgraph(subgraphId: string | null, options?: UseSubgraphsOpt
 }
 
 /**
- * Hook for fetching subgraph indexing status
+ * Hook for fetching subgrove indexing status
  */
-export function useSubgraphStatus(subgraphId: string | null, options?: UseSubgraphsOptions) {
+export function useSubgroveStatus(subgroveId: string | null, options?: UseSubgrovesOptions) {
   const { config } = useWillow();
 
-  const fetcher = useCallback(async (): Promise<SubgraphIndexingStatus | null> => {
-    if (!config || !subgraphId) return null;
+  const fetcher = useCallback(async (): Promise<SubgroveIndexingStatus | null> => {
+    if (!config || !subgroveId) return null;
 
-    const response = await fetch(`${config.apiUrl}/subgraphs/${encodeURIComponent(subgraphId)}/status`);
+    const response = await fetch(`${config.apiUrl}/subgroves/${encodeURIComponent(subgroveId)}/status`);
     if (!response.ok) {
-      throw new Error('Failed to fetch subgraph status');
+      throw new Error('Failed to fetch subgrove status');
     }
 
     const data = await response.json();
     if (!data.success || !data.data) {
-      throw new Error(data.error || 'Subgraph status not found');
+      throw new Error(data.error || 'Subgrove status not found');
     }
 
     return data.data;
-  }, [config, subgraphId]);
+  }, [config, subgroveId]);
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    config && subgraphId ? ['subgraphs', subgraphId, 'status'] : null,
+    config && subgroveId ? ['subgroves', subgroveId, 'status'] : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -197,7 +197,7 @@ export function useSubgraphStatus(subgraphId: string | null, options?: UseSubgra
 /**
  * Hook for listing all indexers
  */
-export function useIndexers(options?: UseSubgraphsOptions) {
+export function useIndexers(options?: UseSubgrovesOptions) {
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<IndexerInfo[] | null> => {
@@ -237,7 +237,7 @@ export function useIndexers(options?: UseSubgraphsOptions) {
 /**
  * Hook for fetching a specific indexer
  */
-export function useIndexer(indexerDid: string | null, options?: UseSubgraphsOptions) {
+export function useIndexer(indexerDid: string | null, options?: UseSubgrovesOptions) {
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<IndexerInfo | null> => {
@@ -277,7 +277,7 @@ export function useIndexer(indexerDid: string | null, options?: UseSubgraphsOpti
 /**
  * Hook for fetching verification statistics
  */
-export function useVerificationStats(options?: UseSubgraphsOptions) {
+export function useVerificationStats(options?: UseSubgrovesOptions) {
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<VerificationStats | null> => {
@@ -321,10 +321,10 @@ interface UseGraphQLOptions {
 }
 
 /**
- * Hook for executing GraphQL queries against a subgraph
+ * Hook for executing GraphQL queries against a subgrove
  */
 export function useGraphQL(
-  subgraphId: string | null,
+  subgroveId: string | null,
   query: string | null,
   options?: UseGraphQLOptions
 ) {
@@ -332,9 +332,9 @@ export function useGraphQL(
   const [isExecuting, setIsExecuting] = useState(false);
 
   const fetcher = useCallback(async (): Promise<GraphQLResponse | null> => {
-    if (!config || !subgraphId || !query || options?.skip) return null;
+    if (!config || !subgroveId || !query || options?.skip) return null;
 
-    const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgraphId)}`, {
+    const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgroveId)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -360,10 +360,10 @@ export function useGraphQL(
     }
 
     return data;
-  }, [config, subgraphId, query, options?.variables, options?.skip]);
+  }, [config, subgroveId, query, options?.variables, options?.skip]);
 
-  const swrKey = config && subgraphId && query && !options?.skip
-    ? ['graphql', subgraphId, query, JSON.stringify(options?.variables || {})]
+  const swrKey = config && subgroveId && query && !options?.skip
+    ? ['graphql', subgroveId, query, JSON.stringify(options?.variables || {})]
     : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
@@ -382,14 +382,14 @@ export function useGraphQL(
     customQuery?: string,
     customVariables?: Record<string, any>
   ): Promise<GraphQLResponse> => {
-    if (!config || !subgraphId) {
-      throw new Error('Client not initialized or subgraph ID not provided');
+    if (!config || !subgroveId) {
+      throw new Error('Client not initialized or subgrove ID not provided');
     }
 
     setIsExecuting(true);
 
     try {
-      const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgraphId)}`, {
+      const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgroveId)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -414,7 +414,7 @@ export function useGraphQL(
     } finally {
       setIsExecuting(false);
     }
-  }, [config, subgraphId, query, options?.variables]);
+  }, [config, subgroveId, query, options?.variables]);
 
   return {
     data: data?.data,
@@ -433,7 +433,7 @@ export function useGraphQL(
 /**
  * Hook for GraphQL mutations (convenience wrapper around useGraphQL)
  */
-export function useGraphQLMutation(subgraphId: string | null) {
+export function useGraphQLMutation(subgroveId: string | null) {
   const { config } = useWillow();
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -442,15 +442,15 @@ export function useGraphQLMutation(subgraphId: string | null) {
     mutation: string,
     variables?: Record<string, any>
   ): Promise<GraphQLResponse> => {
-    if (!config || !subgraphId) {
-      throw new Error('Client not initialized or subgraph ID not provided');
+    if (!config || !subgroveId) {
+      throw new Error('Client not initialized or subgrove ID not provided');
     }
 
     setIsExecuting(true);
     setError(null);
 
     try {
-      const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgraphId)}`, {
+      const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgroveId)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -478,7 +478,7 @@ export function useGraphQLMutation(subgraphId: string | null) {
     } finally {
       setIsExecuting(false);
     }
-  }, [config, subgraphId]);
+  }, [config, subgroveId]);
 
   return {
     execute,

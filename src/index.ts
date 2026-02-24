@@ -56,9 +56,9 @@ export type {
 
 // Indexing/GraphQL hooks
 export {
-  useSubgraphs,
-  useSubgraph,
-  useSubgraphStatus,
+  useSubgroves,
+  useSubgrove,
+  useSubgroveStatus,
   useIndexers,
   useIndexer,
   useVerificationStats,
@@ -66,9 +66,9 @@ export {
   useGraphQLMutation,
 } from './hooks/useIndexing';
 export type {
-  SubgraphInfo,
-  SubgraphStatus,
-  SubgraphIndexingStatus,
+  SubgroveInfo,
+  SubgroveStatus,
+  SubgroveIndexingStatus,
   ChainIndexingStatus,
   IndexerInfo,
   IndexerStatus,

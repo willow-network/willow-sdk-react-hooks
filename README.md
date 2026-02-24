@@ -344,7 +344,7 @@ See the `examples/` directory for complete working examples:
 - **`quickstart.tsx`** - Core workflow: setup provider, generate DID, authenticate, store/query data
 - **`app_registration.tsx`** - Register apps and subgroves, manage permissions
 - **`data_operations.tsx`** - Store, batch store, get, query, update, delete operations
-- **`indexing_and_graphql.tsx`** - GraphQL queries, subgraphs, indexers, verification stats
+- **`indexing_and_graphql.tsx`** - GraphQL queries, subgroves, indexers, verification stats
 - **`token_and_validators.tsx`** - Token info, balances, fee schedules, validators, staking
 
 **Full Application:**
