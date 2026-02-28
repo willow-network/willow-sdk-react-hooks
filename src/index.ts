@@ -104,11 +104,14 @@ export type {
 export { DEVNET_TEST_ACCOUNT } from '@willow/sdk';
 
 // ERC-8004 agent identity hooks
-export { useErc8004Agent, useErc8004Reputation, useErc8004Validation } from './hooks/useErc8004Agent';
+export { useErc8004Agent, useErc8004Reputation, useErc8004Validation, useErc8004AgentDiscovery } from './hooks/useErc8004Agent';
 export type {
   AgentRegistrationJson as Erc8004AgentRegistration,
   AgentReputationSummary,
+  AgentReputationBrief,
   Erc8004Registration,
+  Erc8004AgentListItem,
+  Erc8004AgentListResponse,
   ReputationAttestation,
   ReputationHistoryEvent,
   ReputationHistoryResponse,

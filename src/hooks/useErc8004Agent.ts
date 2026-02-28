@@ -149,6 +149,104 @@ export function useErc8004Agent(did?: string): UseErc8004AgentResult {
   };
 }
 
+// ── Agent Discovery Types ──────────────────────────────────────────────
+
+export interface AgentReputationBrief {
+  score: number;
+  tier: string;
+}
+
+export interface Erc8004AgentListItem {
+  did: string;
+  eth_address: string | null;
+  agent_uri: string;
+  chain_id: number;
+  agent_id: number;
+  reputation: AgentReputationBrief;
+  validation_count: number;
+  average_validation_score: number;
+  registered_at: number;
+}
+
+export interface Erc8004AgentListResponse {
+  agents: Erc8004AgentListItem[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+// ── Agent Discovery Hook ──────────────────────────────────────────────
+
+interface UseErc8004AgentDiscoveryResult {
+  agents: Erc8004AgentListItem[];
+  total: number;
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+/**
+ * React hook for discovering ERC-8004 registered agents.
+ *
+ * @param options - Optional filters: limit, offset, minScore, tier.
+ */
+export function useErc8004AgentDiscovery(options?: {
+  limit?: number;
+  offset?: number;
+  minScore?: number;
+  tier?: string;
+}): UseErc8004AgentDiscoveryResult {
+  const { client } = useWillow();
+  const [agents, setAgents] = useState<Erc8004AgentListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!client) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const apiUrl = (client as any).apiUrl ?? (client as any).config?.apiUrl ?? '';
+      const params: string[] = [];
+      if (options?.limit !== undefined) params.push(`limit=${options.limit}`);
+      if (options?.offset !== undefined) params.push(`offset=${options.offset}`);
+      if (options?.minScore !== undefined) params.push(`min_score=${options.minScore}`);
+      if (options?.tier !== undefined) params.push(`tier=${encodeURIComponent(options.tier)}`);
+      const qs = params.length > 0 ? `?${params.join('&')}` : '';
+
+      const resp = await fetch(`${apiUrl}/agents${qs}`);
+      if (resp.ok) {
+        const body = await resp.json();
+        const data = body.data ?? {};
+        setAgents(data.agents ?? []);
+        setTotal(data.total ?? 0);
+      } else {
+        setAgents([]);
+        setTotal(0);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setLoading(false);
+    }
+  }, [client, options?.limit, options?.offset, options?.minScore, options?.tier]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return {
+    agents,
+    total,
+    loading,
+    error,
+    refetch: fetchData,
+  };
+}
+
 // ── Validation Registry Types ──────────────────────────────────────────
 
 export interface Erc8004ValidationRecord {
