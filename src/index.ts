@@ -54,6 +54,10 @@ export type {
   ValidatorSet,
 } from './hooks/useValidators';
 
+// SQL hooks
+export { useSqlQuery } from './hooks/useSqlQuery';
+export type { SqlQueryResponse } from './hooks/useSqlQuery';
+
 // Indexing/GraphQL hooks
 export {
   useSubgroves,
