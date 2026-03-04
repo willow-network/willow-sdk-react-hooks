@@ -122,6 +122,21 @@ export type {
   Erc8004ValidationSummary,
 } from './hooks/useErc8004Agent';
 
+// Privacy hooks
+export {
+  useKeyGrant,
+  useKeyGrantees,
+  useGrantKey,
+  useRevokeKey,
+  useRotateKey,
+} from './hooks/usePrivacy';
+export type {
+  EncryptedKeyGrant,
+  GrantKeyParams,
+  RevokeKeyParams,
+  RotateKeyParams,
+} from './hooks/usePrivacy';
+
 // Computed Fields hooks
 export {
   useComputedFieldRegistry,
