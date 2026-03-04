@@ -302,9 +302,6 @@ function AuthenticatedContent({
                   <strong>Stake:</strong> {validator.stake?.toLocaleString()} WILL
                 </p>
                 <p>
-                  <strong>Commission:</strong> {validator.commissionRate}%
-                </p>
-                <p>
                   <strong>Voting Power:</strong> {validator.votingPower}%
                 </p>
                 <button onClick={() => setSelectedValidator(null)}>Close</button>
