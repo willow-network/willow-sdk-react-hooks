@@ -23,11 +23,15 @@ export interface BalanceInfo {
 }
 
 export interface FeeSchedule {
-  storage_fee_per_byte: string;
-  query_fee_base: string;
-  query_fee_per_result: string;
-  minimum_app_balance: string;
-  minimum_indexer_stake: string;
+  did_registration: string;
+  app_registration: string;
+  subgrove_registration: string;
+  base_tx_cost: string;
+  cost_per_byte: string;
+  query_fee: string;
+  transfer_fee_percentage: number;
+  max_tx_size_bytes: number;
+  max_data_payload_bytes: number;
 }
 
 interface UseTokenInfoOptions extends SWRConfiguration {}
