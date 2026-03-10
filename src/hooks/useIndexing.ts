@@ -3,6 +3,13 @@ import useSWR, { SWRConfiguration } from 'swr';
 import { useWillow } from './useWillow';
 
 // Indexing types (matching Rust SDK)
+
+/** How long real-time indexed data is retained on consensus nodes. */
+export type RetentionWindow =
+  | { type: 'Blocks'; value: number }
+  | { type: 'Seconds'; value: number }
+  | { type: 'Indefinite' };
+
 export interface SubgroveInfo {
   subgrove_id: string;
   name: string;
@@ -11,6 +18,7 @@ export interface SubgroveInfo {
   start_block: number;
   current_block?: number;
   status: SubgroveStatus;
+  retention_window?: RetentionWindow;
   created_at: number;
   updated_at: number;
 }

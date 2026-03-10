@@ -70,6 +70,7 @@ export {
   useGraphQLMutation,
 } from './hooks/useIndexing';
 export type {
+  RetentionWindow,
   SubgroveInfo,
   SubgroveStatus,
   SubgroveIndexingStatus,

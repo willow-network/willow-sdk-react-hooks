@@ -9,6 +9,8 @@ import {
 import { useWillow } from './useWillow';
 
 // Types for subgrove (matching Rust SDK)
+import type { RetentionWindow } from './useIndexing';
+
 export interface SubgroveRegistration {
   subgrove_id: string;
   app_id: string;
@@ -17,6 +19,7 @@ export interface SubgroveRegistration {
   owner_did: string;
   writers: string[];
   readers: string[];
+  retention_window?: RetentionWindow;
   created_at: number;
   updated_at: number;
 }
