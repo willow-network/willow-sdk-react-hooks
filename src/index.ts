@@ -109,7 +109,6 @@ export { useErc8004Agent, useErc8004Reputation, useErc8004Validation, useErc8004
 export type {
   AgentRegistrationJson as Erc8004AgentRegistration,
   AgentReputationSummary,
-  AgentReputationBrief,
   Erc8004Registration,
   Erc8004AgentListItem,
   Erc8004AgentListResponse,

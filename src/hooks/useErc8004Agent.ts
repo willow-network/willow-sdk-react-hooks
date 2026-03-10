@@ -4,8 +4,6 @@ import { useWillow } from './useWillow';
 // ── Types ──────────────────────────────────────────────────────────────
 
 export interface AgentReputationSummary {
-  score: number;
-  tier: string;
   checkpoint_success_rate: number;
   verification_accuracy: number;
   active_days: number;
@@ -34,8 +32,6 @@ export interface Erc8004Registration {
 
 export interface ReputationAttestation {
   did: string;
-  score: number;
-  tier: string;
   metrics: Record<string, unknown>;
   proof: string;
   block_height: number;
@@ -44,8 +40,6 @@ export interface ReputationAttestation {
 
 export interface ReputationHistoryEvent {
   event_type: string;
-  score_delta: number;
-  new_score: number;
   block_height: number;
   timestamp: number;
   reference: string | null;
@@ -151,20 +145,13 @@ export function useErc8004Agent(did?: string): UseErc8004AgentResult {
 
 // ── Agent Discovery Types ──────────────────────────────────────────────
 
-export interface AgentReputationBrief {
-  score: number;
-  tier: string;
-}
-
 export interface Erc8004AgentListItem {
   did: string;
   eth_address: string | null;
   agent_uri: string;
   chain_id: number;
   agent_id: number;
-  reputation: AgentReputationBrief;
   validation_count: number;
-  average_validation_score: number;
   registered_at: number;
 }
 
@@ -188,13 +175,11 @@ interface UseErc8004AgentDiscoveryResult {
 /**
  * React hook for discovering ERC-8004 registered agents.
  *
- * @param options - Optional filters: limit, offset, minScore, tier.
+ * @param options - Optional filters: limit, offset.
  */
 export function useErc8004AgentDiscovery(options?: {
   limit?: number;
   offset?: number;
-  minScore?: number;
-  tier?: string;
 }): UseErc8004AgentDiscoveryResult {
   const { client } = useWillow();
   const [agents, setAgents] = useState<Erc8004AgentListItem[]>([]);
@@ -213,8 +198,6 @@ export function useErc8004AgentDiscovery(options?: {
       const params: string[] = [];
       if (options?.limit !== undefined) params.push(`limit=${options.limit}`);
       if (options?.offset !== undefined) params.push(`offset=${options.offset}`);
-      if (options?.minScore !== undefined) params.push(`min_score=${options.minScore}`);
-      if (options?.tier !== undefined) params.push(`tier=${encodeURIComponent(options.tier)}`);
       const qs = params.length > 0 ? `?${params.join('&')}` : '';
 
       const resp = await fetch(`${apiUrl}/agents${qs}`);
@@ -232,7 +215,7 @@ export function useErc8004AgentDiscovery(options?: {
     } finally {
       setLoading(false);
     }
-  }, [client, options?.limit, options?.offset, options?.minScore, options?.tier]);
+  }, [client, options?.limit, options?.offset]);
 
   useEffect(() => {
     fetchData();
