@@ -8,7 +8,8 @@ import { useWillow } from './useWillow';
 export type RetentionWindow =
   | { type: 'Blocks'; value: number }
   | { type: 'Seconds'; value: number }
-  | { type: 'Indefinite' };
+  | { type: 'Indefinite' }
+  | { type: 'VerifyOnly' };
 
 export interface SubgroveInfo {
   subgrove_id: string;
