@@ -221,6 +221,29 @@ if (proof) {
 }
 ```
 
+### `useFiles()`
+
+Upload, download, and manage files in FileStorage subgroves.
+
+```tsx
+import { useFiles } from '@willow/react-hooks';
+
+function FileManager() {
+  const { files, upload, download, remove, isLoading } = useFiles('my-app', 'media');
+
+  const handleUpload = async (file: File) => {
+    const data = new Uint8Array(await file.arrayBuffer());
+    await upload(file.name, file.name, data, 'https://storage1.example.com');
+  };
+
+  return (
+    <div>
+      {files?.map(f => <div key={f.file_key}>{f.filename} ({f.total_size} bytes)</div>)}
+    </div>
+  );
+}
+```
+
 ## Advanced Usage
 
 ### Custom Configuration

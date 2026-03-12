@@ -122,6 +122,9 @@ export type {
   Erc8004ValidationSummary,
 } from './hooks/useErc8004Agent';
 
+// File storage hooks
+export { useFiles, useFileMetadata, useFileMutations, useUnregisterStorageNode } from './hooks/useFiles';
+
 // Privacy hooks
 export {
   useKeyGrant,
