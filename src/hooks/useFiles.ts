@@ -26,7 +26,6 @@ interface UseFilesOptions extends SWRConfiguration {
  * Hook for listing files in a subgrove.
  */
 export function useFiles(
-  appId: string,
   subgroveId: string,
   options?: UseFilesOptions,
 ) {
@@ -34,8 +33,8 @@ export function useFiles(
 
   const fetcher = useCallback(async () => {
     if (!client) return null;
-    return client.files.list(appId, subgroveId);
-  }, [client, appId, subgroveId]);
+    return client.files.list(subgroveId);
+  }, [client, subgroveId]);
 
   const {
     data,
@@ -44,7 +43,7 @@ export function useFiles(
     isValidating,
     mutate: swrMutate,
   } = useSWR(
-    client ? ['files', appId, subgroveId] : null,
+    client ? ['files', subgroveId] : null,
     fetcher,
     { revalidateOnFocus: false, ...options },
   );
@@ -58,7 +57,6 @@ export function useFiles(
  * Hook for getting a single file's metadata.
  */
 export function useFileMetadata(
-  appId: string,
   subgroveId: string,
   fileKey: string | null,
   options?: UseFilesOptions,
@@ -67,8 +65,8 @@ export function useFileMetadata(
 
   const fetcher = useCallback(async () => {
     if (!client || !fileKey) return null;
-    return client.files.metadata(appId, subgroveId, fileKey);
-  }, [client, appId, subgroveId, fileKey]);
+    return client.files.metadata(subgroveId, fileKey);
+  }, [client, subgroveId, fileKey]);
 
   const {
     data,
@@ -77,7 +75,7 @@ export function useFileMetadata(
     isValidating,
     mutate: swrMutate,
   } = useSWR(
-    client && fileKey ? ['file-metadata', appId, subgroveId, fileKey] : null,
+    client && fileKey ? ['file-metadata', subgroveId, fileKey] : null,
     fetcher,
     { revalidateOnFocus: false, ...options },
   );
@@ -90,7 +88,7 @@ export function useFileMetadata(
 /**
  * Hook for file upload/download/delete mutations.
  */
-export function useFileMutations(appId: string, subgroveId: string) {
+export function useFileMutations(subgroveId: string) {
   const { client, isAuthenticated } = useWillow();
 
   const upload = useCallback(
@@ -104,7 +102,6 @@ export function useFileMutations(appId: string, subgroveId: string) {
         throw new Error('Not authenticated');
       }
       const manifest = await client.files.upload(
-        appId,
         subgroveId,
         fileKey,
         filename,
@@ -112,23 +109,22 @@ export function useFileMutations(appId: string, subgroveId: string) {
         storageNodeEndpoint,
       );
       // Invalidate file list cache
-      await mutate(['files', appId, subgroveId]);
+      await mutate(['files', subgroveId]);
       return manifest;
     },
-    [client, isAuthenticated, appId, subgroveId],
+    [client, isAuthenticated, subgroveId],
   );
 
   const download = useCallback(
     async (fileKey: string, storageNodeEndpoint: string): Promise<Buffer> => {
       if (!client) throw new Error('Client not initialized');
       return client.files.download(
-        appId,
         subgroveId,
         fileKey,
         storageNodeEndpoint,
       );
     },
-    [client, appId, subgroveId],
+    [client, subgroveId],
   );
 
   const deleteFile = useCallback(
@@ -136,12 +132,12 @@ export function useFileMutations(appId: string, subgroveId: string) {
       if (!client || !isAuthenticated) {
         throw new Error('Not authenticated');
       }
-      await client.files.delete(appId, subgroveId, fileKey);
+      await client.files.delete(subgroveId, fileKey);
       // Invalidate caches
-      await mutate(['files', appId, subgroveId]);
-      await mutate(['file-metadata', appId, subgroveId, fileKey]);
+      await mutate(['files', subgroveId]);
+      await mutate(['file-metadata', subgroveId, fileKey]);
     },
-    [client, isAuthenticated, appId, subgroveId],
+    [client, isAuthenticated, subgroveId],
   );
 
   return { upload, download, deleteFile };

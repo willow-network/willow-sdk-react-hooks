@@ -28,7 +28,7 @@ function App() {
 // 2. Use hooks in your components
 function NotesApp() {
   const { isAuthenticated, generateAndRegister } = useAuth();
-  const { store, useItem } = useCollection('my-app', 'notes');
+  const { store, useItem } = useCollection('my-subgrove', 'notes');
 
   // Auto-generate DID and login
   const handleLogin = async () => {
@@ -117,7 +117,7 @@ Fetch data with SWR caching.
 
 ```tsx
 const { data, error, isLoading, refetch } = useData(
-  'app-id',
+  'subgrove-id',
   'dataset-id',
   'key',
   {
@@ -133,7 +133,7 @@ const { data, error, isLoading, refetch } = useData(
 Mutations for data operations.
 
 ```tsx
-const { store, update, remove } = useDataMutation('app-id', 'dataset-id');
+const { store, update, remove } = useDataMutation('subgrove-id', 'dataset-id');
 
 // Create or overwrite
 await store('key', { name: 'value' });
@@ -147,7 +147,7 @@ await remove('key');
 
 ### `useCollection()`
 
-Work with a specific collection (app + dataset).
+Work with a specific collection (subgrove + dataset).
 
 ```tsx
 const {
@@ -158,7 +158,7 @@ const {
   batchStore,     // Batch operations
   getMultiple,    // Get multiple records
   useItem,        // Hook for individual items
-} = useCollection('my-app', 'notes');
+} = useCollection('my-subgrove', 'notes');
 
 // Use individual items with caching
 const { data: note1 } = useItem('note-1');
@@ -173,25 +173,15 @@ await batchStore([
 
 ### `useRegistration()`
 
-Register apps and datasets.
+Register subgroves and datasets.
 
 ```tsx
-const { registerApp, registerDataset, isRegistering, error } = useRegistration();
-
-// Register app
-const app = await registerApp({
-  app_id: 'my-app',
-  name: 'My Application',
-  description: 'A React app using Willow',
-  app_type: 'web',
-  owner_did: session.did,
-  admins: [],
-});
+const { registerDataset, isRegistering, error } = useRegistration();
 
 // Register dataset
 const dataset = await registerDataset({
   dataset_id: 'notes',
-  app_id: 'my-app',
+
   name: 'User Notes',
   dataset_path: ['collections'],
   schema: {
@@ -214,7 +204,7 @@ const dataset = await registerDataset({
 Get cryptographic proofs.
 
 ```tsx
-const { proof, error, isLoading } = useProof('app-id', 'dataset-id', 'key');
+const { proof, error, isLoading } = useProof('subgrove-id', 'dataset-id', 'key');
 
 if (proof) {
   console.log('Merkle proof:', proof);
@@ -229,7 +219,7 @@ Upload, download, and manage files in FileStorage subgroves.
 import { useFiles } from '@willow/react-hooks';
 
 function FileManager() {
-  const { files, upload, download, remove, isLoading } = useFiles('my-app', 'media');
+  const { files, upload, download, remove, isLoading } = useFiles('my-subgrove', 'media');
 
   const handleUpload = async (file: File) => {
     const data = new Uint8Array(await file.arrayBuffer());
@@ -266,7 +256,7 @@ function FileManager() {
 ```tsx
 function MyComponent() {
   const { error } = useWillow();
-  const { store } = useDataMutation('app', 'dataset');
+  const { store } = useDataMutation('subgrove', 'dataset');
 
   const handleStore = async () => {
     try {
@@ -292,19 +282,19 @@ function MyComponent() {
 import { mutate } from 'swr';
 
 function NoteEditor({ noteId }) {
-  const { data: note } = useData('app', 'notes', noteId);
-  const { update } = useDataMutation('app', 'notes');
+  const { data: note } = useData('subgrove', 'notes', noteId);
+  const { update } = useDataMutation('subgrove', 'notes');
 
   const handleUpdate = async (newContent) => {
     // Optimistic update
     const optimisticNote = { ...note, content: newContent };
-    mutate(['data', 'app', 'notes', noteId], optimisticNote, false);
+    mutate(['data', 'subgrove', 'notes', noteId], optimisticNote, false);
 
     try {
       await update(noteId, optimisticNote);
     } catch (error) {
       // Revert on error
-      mutate(['data', 'app', 'notes', noteId]);
+      mutate(['data', 'subgrove', 'notes', noteId]);
     }
   };
 }
@@ -327,7 +317,7 @@ function App() {
 
 function Notes() {
   // Will suspend while loading
-  const { data } = useData('app', 'notes', 'note-1', { suspense: true });
+  const { data } = useData('subgrove', 'notes', 'note-1', { suspense: true });
   return <div>{data.title}</div>;
 }
 ```
@@ -345,7 +335,7 @@ interface Note {
 }
 
 function useNotes() {
-  const { data } = useData<Note>('my-app', 'notes', 'note-1');
+  const { data } = useData<Note>('my-subgrove', 'notes', 'note-1');
   // data is typed as Note | undefined
 }
 ```
@@ -365,7 +355,7 @@ See the `examples/` directory for complete working examples:
 
 **Feature Examples:**
 - **`quickstart.tsx`** - Core workflow: setup provider, generate DID, authenticate, store/query data
-- **`app_registration.tsx`** - Register apps and subgroves, manage permissions
+- **`app_registration.tsx`** - Register subgroves and manage permissions
 - **`data_operations.tsx`** - Store, batch store, get, query, update, delete operations
 - **`indexing_and_graphql.tsx`** - GraphQL queries, subgroves, indexers, verification stats
 - **`token_and_validators.tsx`** - Token info, balances, fee schedules, validators, staking
@@ -378,7 +368,7 @@ See the `examples/` directory for complete working examples:
 ```tsx
 function TodoApp() {
   const { isAuthenticated } = useAuth();
-  const { store, remove, useItem } = useCollection('todo-app', 'todos');
+  const { store, remove, useItem } = useCollection('todo-subgrove', 'todos');
   const [todos, setTodos] = useState<string[]>([]);
 
   // Fetch all todos

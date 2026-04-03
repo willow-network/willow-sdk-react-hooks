@@ -22,7 +22,7 @@ import {
   useAuth,
   useTokenInfo,
   useBalance,
-  useAppBalance,
+
   useFeeSchedule,
   useToken,
   useValidators,
@@ -67,17 +67,13 @@ function AuthenticatedContent({
   const { balance, isLoading: balanceLoading, error: balanceError } = useBalance(did);
 
   // App balance
-  const {
-    balance: appBalance,
-    isLoading: appBalanceLoading,
-    error: appBalanceError,
-  } = useAppBalance(selectedApp);
+
 
   // Fee schedule
   const { feeSchedule, isLoading: feeLoading, error: feeError } = useFeeSchedule();
 
   // Combined token hook (convenience)
-  const { fundApp, transfer, isFunding, isTransferring } = useToken(did);
+  const { fundSubgrove, transfer, isFunding, isTransferring } = useToken(did);
 
   // ============ VALIDATOR HOOKS ============
 
@@ -168,9 +164,9 @@ function AuthenticatedContent({
           )}
         </section>
 
-        {/* App Balance */}
+        {/* Subgrove Balance */}
         <section style={{ marginBottom: '30px' }}>
-          <h3>3. App Balance</h3>
+          <h3>3. Subgrove Balance</h3>
           <div style={{ marginBottom: '10px' }}>
             <label>
               App ID:{' '}
@@ -185,11 +181,11 @@ function AuthenticatedContent({
           {appBalanceLoading ? (
             <p>Loading app balance...</p>
           ) : appBalanceError ? (
-            <p style={{ color: 'orange' }}>App not found or no balance</p>
+            <p style={{ color: 'orange' }}>Subgrove not found or no balance</p>
           ) : appBalance !== undefined ? (
             <div style={{ background: '#fff3e0', padding: '10px' }}>
               <p>
-                <strong>App Balance:</strong> {appBalance?.toLocaleString() || 0} WILL
+                <strong>Subgrove Balance:</strong> {appBalance?.toLocaleString() || 0} WILL
               </p>
             </div>
           ) : (
@@ -346,7 +342,7 @@ function AuthenticatedContent({
           <li>📊 Pay-per-storage model (automatic deduction)</li>
           <li>🔒 Validators secure the network via Proof of Stake</li>
           <li>🔍 Indexers earn rewards for indexing work</li>
-          <li>⚡ Apps fund storage to enable data operations</li>
+          <li>⚡ Subgroves fund storage to enable data operations</li>
         </ul>
       </section>
     </div>

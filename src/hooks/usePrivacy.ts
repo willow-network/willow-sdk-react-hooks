@@ -11,8 +11,6 @@ export type { EncryptedKeyGrant } from '@willow/sdk';
  * Parameters for granting a subgrove encryption key to a DID.
  */
 export interface GrantKeyParams {
-  /** Parent application ID. */
-  appId: string;
   /** Subgrove to grant access to. */
   subgroveId: string;
   /** The encrypted key grant for the grantee. */
@@ -23,8 +21,6 @@ export interface GrantKeyParams {
  * Parameters for revoking a subgrove encryption key from a DID.
  */
 export interface RevokeKeyParams {
-  /** Parent application ID. */
-  appId: string;
   /** Subgrove to revoke access from. */
   subgroveId: string;
   /** DID to revoke access from. */
@@ -35,8 +31,6 @@ export interface RevokeKeyParams {
  * Parameters for rotating a subgrove encryption key.
  */
 export interface RotateKeyParams {
-  /** Parent application ID. */
-  appId: string;
   /** Subgrove to rotate key for. */
   subgroveId: string;
   /** New key epoch (must be current_epoch + 1). */
@@ -56,14 +50,14 @@ export interface RotateKeyParams {
  * The API requires the caller to be the grantee DID or an owner/admin of the
  * subgrove.
  *
- * @param appId - Application ID
+ * 
  * @param subgroveId - Subgrove ID
  * @param options - SWR configuration options
  *
  * @example
  * ```tsx
- * function KeyViewer({ appId, subgroveId }) {
- *   const { keyGrant, isLoading, error } = useKeyGrant(appId, subgroveId);
+ * function KeyViewer({ subgroveId }) {
+ *   const { keyGrant, isLoading, error } = useKeyGrant(subgroveId);
  *
  *   if (isLoading) return <div>Loading...</div>;
  *   if (error) return <div>Error: {error.message}</div>;
@@ -74,7 +68,7 @@ export interface RotateKeyParams {
  * ```
  */
 export function useKeyGrant(
-  appId: string | null,
+
   subgroveId: string | null,
   options?: SWRConfiguration
 ) {
@@ -84,12 +78,12 @@ export function useKeyGrant(
   const did = client?.auth?.getDid?.() ?? null;
 
   const fetcher = useCallback(async (): Promise<EncryptedKeyGrant | null> => {
-    if (!config || !isAuthenticated || !appId || !subgroveId || !did || !client) {
+    if (!config || !isAuthenticated || !subgroveId || !did || !client) {
       return null;
     }
 
-    const url = `${config.apiUrl}/key-grants/${encodeURIComponent(appId)}/${encodeURIComponent(subgroveId)}/${encodeURIComponent(did)}`;
-    const headers = client.auth.getAuthHeaders('GET', `/key-grants/${appId}/${subgroveId}/${did}`);
+    const url = `${config.apiUrl}/key-grants/${encodeURIComponent(subgroveId)}/${encodeURIComponent(did)}`;
+    const headers = client.auth.getAuthHeaders('GET', `/key-grants/${subgroveId}/${did}`);
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
@@ -106,10 +100,10 @@ export function useKeyGrant(
     }
 
     return data.data;
-  }, [config, isAuthenticated, appId, subgroveId, did, client]);
+  }, [config, isAuthenticated, subgroveId, did, client]);
 
-  const swrKey = config && isAuthenticated && appId && subgroveId && did
-    ? ['keyGrant', appId, subgroveId, did]
+  const swrKey = config && isAuthenticated && subgroveId && did
+    ? ['keyGrant', subgroveId, did]
     : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<EncryptedKeyGrant | null>(
@@ -140,14 +134,14 @@ export function useKeyGrant(
  *
  * The API requires the caller to be an owner/admin of the subgrove.
  *
- * @param appId - Application ID
+ * 
  * @param subgroveId - Subgrove ID
  * @param options - SWR configuration options
  *
  * @example
  * ```tsx
- * function GranteeList({ appId, subgroveId }) {
- *   const { grantees, isLoading, error } = useKeyGrantees(appId, subgroveId);
+ * function GranteeList({ subgroveId }) {
+ *   const { grantees, isLoading, error } = useKeyGrantees(subgroveId);
  *
  *   if (isLoading) return <div>Loading...</div>;
  *   if (error) return <div>Error: {error.message}</div>;
@@ -161,19 +155,19 @@ export function useKeyGrant(
  * ```
  */
 export function useKeyGrantees(
-  appId: string | null,
+
   subgroveId: string | null,
   options?: SWRConfiguration
 ) {
   const { client, config, isAuthenticated } = useWillow();
 
   const fetcher = useCallback(async (): Promise<string[]> => {
-    if (!config || !isAuthenticated || !appId || !subgroveId || !client) {
+    if (!config || !isAuthenticated || !subgroveId || !client) {
       return [];
     }
 
-    const url = `${config.apiUrl}/key-grants/${encodeURIComponent(appId)}/${encodeURIComponent(subgroveId)}`;
-    const headers = client.auth.getAuthHeaders('GET', `/key-grants/${appId}/${subgroveId}`);
+    const url = `${config.apiUrl}/key-grants/${encodeURIComponent(subgroveId)}`;
+    const headers = client.auth.getAuthHeaders('GET', `/key-grants/${subgroveId}`);
 
     const response = await fetch(url, { headers });
     if (!response.ok) {
@@ -187,10 +181,10 @@ export function useKeyGrantees(
     }
 
     return data.data || [];
-  }, [config, isAuthenticated, appId, subgroveId, client]);
+  }, [config, isAuthenticated, subgroveId, client]);
 
-  const swrKey = config && isAuthenticated && appId && subgroveId
-    ? ['keyGrantees', appId, subgroveId]
+  const swrKey = config && isAuthenticated && subgroveId
+    ? ['keyGrantees', subgroveId]
     : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<string[]>(
@@ -228,13 +222,13 @@ export function useKeyGrantees(
  *
  * @example
  * ```tsx
- * function GrantKeyButton({ appId, subgroveId }) {
+ * function GrantKeyButton({ subgroveId }) {
  *   const { grantKey, isGranting, error } = useGrantKey();
  *
  *   const handleGrant = async () => {
  *     try {
  *       await grantKey({
- *         appId,
+ *
  *         subgroveId,
  *         encryptedKeyGrant: {
  *           grantee_did: 'did:willow:reader1',
@@ -282,12 +276,12 @@ export function useGrantKey() {
     setError(null);
 
     try {
-      const { appId, subgroveId, encryptedKeyGrant } = params;
-      await privacy.grantSubgroveKey(appId, subgroveId, encryptedKeyGrant);
+      const { subgroveId, encryptedKeyGrant } = params;
+      await privacy.grantSubgroveKey(subgroveId, encryptedKeyGrant);
 
       // Invalidate related SWR caches so queries refetch
-      await globalMutate(['keyGrantees', appId, subgroveId]);
-      await globalMutate(['keyGrant', appId, subgroveId, encryptedKeyGrant.grantee_did]);
+      await globalMutate(['keyGrantees', subgroveId]);
+      await globalMutate(['keyGrant', subgroveId, encryptedKeyGrant.grantee_did]);
     } catch (err) {
       const wrapped = err instanceof Error ? err : new Error(String(err));
       setError(wrapped);
@@ -313,12 +307,12 @@ export function useGrantKey() {
  *
  * @example
  * ```tsx
- * function RevokeButton({ appId, subgroveId, revokeeDid }) {
+ * function RevokeButton({ subgroveId, revokeeDid }) {
  *   const { revokeKey, isRevoking, error } = useRevokeKey();
  *
  *   const handleRevoke = async () => {
  *     try {
- *       await revokeKey({ appId, subgroveId, revokeeDid });
+ *       await revokeKey({ subgroveId, revokeeDid });
  *     } catch (err) {
  *       console.error('Revoke failed:', err);
  *     }
@@ -355,12 +349,12 @@ export function useRevokeKey() {
     setError(null);
 
     try {
-      const { appId, subgroveId, revokeeDid } = params;
-      await privacy.revokeSubgroveKey(appId, subgroveId, revokeeDid);
+      const { subgroveId, revokeeDid } = params;
+      await privacy.revokeSubgroveKey(subgroveId, revokeeDid);
 
       // Invalidate related SWR caches
-      await globalMutate(['keyGrantees', appId, subgroveId]);
-      await globalMutate(['keyGrant', appId, subgroveId, revokeeDid]);
+      await globalMutate(['keyGrantees', subgroveId]);
+      await globalMutate(['keyGrant', subgroveId, revokeeDid]);
     } catch (err) {
       const wrapped = err instanceof Error ? err : new Error(String(err));
       setError(wrapped);
@@ -391,13 +385,13 @@ export function useRevokeKey() {
  *
  * @example
  * ```tsx
- * function RotateButton({ appId, subgroveId }) {
+ * function RotateButton({ subgroveId }) {
  *   const { rotateKey, isRotating, error } = useRotateKey();
  *
  *   const handleRotate = async () => {
  *     try {
  *       await rotateKey({
- *         appId,
+ *
  *         subgroveId,
  *         newEpoch: 2,
  *         newGrants: [
@@ -440,15 +434,15 @@ export function useRotateKey() {
     setError(null);
 
     try {
-      const { appId, subgroveId, newEpoch, newGrants } = params;
-      await privacy.rotateSubgroveKey(appId, subgroveId, newEpoch, newGrants);
+      const { subgroveId, newEpoch, newGrants } = params;
+      await privacy.rotateSubgroveKey(subgroveId, newEpoch, newGrants);
 
       // Invalidate all key-grant caches for this subgrove
-      await globalMutate(['keyGrantees', appId, subgroveId]);
+      await globalMutate(['keyGrantees', subgroveId]);
       // Invalidate individual grant caches for all DIDs in the new grants
       await Promise.all(
         newGrants.map((grant) =>
-          globalMutate(['keyGrant', appId, subgroveId, grant.grantee_did])
+          globalMutate(['keyGrant', subgroveId, grant.grantee_did])
         )
       );
     } catch (err) {

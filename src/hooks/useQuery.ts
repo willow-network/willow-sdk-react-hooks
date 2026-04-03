@@ -15,7 +15,6 @@ interface UseQueryOptions extends SWRConfiguration {
  * Hook for querying indexed data with automatic proof verification
  */
 export function useQuery(
-  appId: string,
   datasetId: string,
   query: QueryRequest | null,
   options?: UseQueryOptions
@@ -29,16 +28,16 @@ export function useQuery(
 
     // Use unverified method if skipVerification is true
     if (options?.skipVerification) {
-      return client.data.queryUnverified(appId, datasetId, query);
+      return client.data.queryUnverified(datasetId, query);
     }
 
     // Default to verified query
-    return client.data.query(appId, datasetId, query);
-  }, [client, isAuthenticated, appId, datasetId, query, options?.skipVerification]);
+    return client.data.query(datasetId, query);
+  }, [client, isAuthenticated, datasetId, query, options?.skipVerification]);
 
   // Create a stable key for SWR
   const swrKey = client && isAuthenticated && query
-    ? ['query', appId, datasetId, JSON.stringify(query)]
+    ? ['query', datasetId, JSON.stringify(query)]
     : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR<QueryResponse | null>(
@@ -73,7 +72,6 @@ export function useQuery(
  * Hook for paginated queries
  */
 export function usePaginatedQuery(
-  appId: string,
   datasetId: string,
   baseQuery: Omit<QueryRequest, 'offset' | 'limit'>,
   pageSize: number = 20,
@@ -87,7 +85,7 @@ export function usePaginatedQuery(
     limit: pageSize
   }), [baseQuery, page, pageSize]);
 
-  const result = useQuery(appId, datasetId, query, options);
+  const result = useQuery(datasetId, query, options);
 
   const nextPage = useCallback(() => {
     if (result.hasMore) {

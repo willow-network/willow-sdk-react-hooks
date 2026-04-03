@@ -18,7 +18,7 @@ interface UseSqlQueryOptions extends SWRConfiguration {
 /**
  * Hook for executing SQL queries against a subgrove.
  *
- * @param appId - The application ID
+ * 
  * @param subgroveId - The subgrove to query
  * @param sql - SQL SELECT query string (pass null to skip)
  * @param options - Query options including proof and SWR config
@@ -26,14 +26,12 @@ interface UseSqlQueryOptions extends SWRConfiguration {
  * @example
  * ```tsx
  * const { columns, rows, total, isLoading } = useSqlQuery(
- *   'my-app',
  *   'my-subgrove',
  *   "SELECT id, name, symbol FROM tokens WHERE decimals > 6 ORDER BY name LIMIT 10"
  * );
  * ```
  */
 export function useSqlQuery(
-  appId: string | null,
   subgroveId: string | null,
   sql: string | null,
   options?: UseSqlQueryOptions
@@ -41,9 +39,9 @@ export function useSqlQuery(
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<SqlQueryResponse | null> => {
-    if (!config || !appId || !subgroveId || !sql || options?.skip) return null;
+    if (!config || !subgroveId || !sql || options?.skip) return null;
 
-    const response = await fetch(`${config.apiUrl}/sql/${encodeURIComponent(appId)}/${encodeURIComponent(subgroveId)}`, {
+    const response = await fetch(`${config.apiUrl}/sql/${encodeURIComponent(subgroveId)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -69,10 +67,10 @@ export function useSqlQuery(
     }
 
     return data;
-  }, [config, appId, subgroveId, sql, options?.includeProof, options?.skip]);
+  }, [config, subgroveId, subgroveId, sql, options?.includeProof, options?.skip]);
 
-  const swrKey = config && appId && subgroveId && sql && !options?.skip
-    ? ['sql', appId, subgroveId, sql, options?.includeProof ?? false]
+  const swrKey = config && subgroveId && sql && !options?.skip
+    ? ['sql', subgroveId, sql, options?.includeProof ?? false]
     : null;
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(

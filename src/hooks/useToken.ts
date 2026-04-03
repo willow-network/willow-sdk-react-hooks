@@ -15,7 +15,6 @@ export interface TokenInfo {
 
 export interface BalanceInfo {
   did?: string;
-  app_id?: string;
   balance: string;
   available: string;
   staked: string;
@@ -24,7 +23,6 @@ export interface BalanceInfo {
 
 export interface FeeSchedule {
   did_registration: string;
-  app_registration: string;
   subgrove_registration: string;
   base_tx_cost: string;
   cost_per_byte: string;
@@ -119,29 +117,29 @@ export function useBalance(did: string | null, options?: UseBalanceOptions) {
 }
 
 /**
- * Hook for fetching an app's balance
+ * Hook for fetching a subgrove's balance
  */
-export function useAppBalance(appId: string | null, options?: UseBalanceOptions) {
+export function useSubgroveBalance(subgroveId: string | null, options?: UseBalanceOptions) {
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<BalanceInfo | null> => {
-    if (!config || !appId) return null;
+    if (!config || !subgroveId) return null;
 
-    const response = await fetch(`${config.apiUrl}/token/app/balance/${encodeURIComponent(appId)}`);
+    const response = await fetch(`${config.apiUrl}/token/subgrove/balance/${encodeURIComponent(subgroveId)}`);
     if (!response.ok) {
-      throw new Error('Failed to fetch app balance');
+      throw new Error('Failed to fetch subgrove balance');
     }
 
     const data = await response.json();
     if (!data.success || !data.data) {
-      throw new Error(data.error || 'App balance not found');
+      throw new Error(data.error || 'Subgrove balance not found');
     }
 
     return data.data;
-  }, [config, appId]);
+  }, [config, subgroveId]);
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    config && appId ? ['token', 'app', 'balance', appId] : null,
+    config && subgroveId ? ['token', 'subgrove', 'balance', subgroveId] : null,
     fetcher,
     {
       revalidateOnFocus: false,

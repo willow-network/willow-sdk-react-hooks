@@ -24,11 +24,9 @@ import {
   useWillow,
   useAuth,
   useRegistration,
-  useApp,
   useCollection,
   useQuery,
   useBalance,
-  useAppBalance,
   useToken,
 } from '@willow/react-hooks';
 
@@ -187,7 +185,7 @@ const styles = {
 
 function NotesApp() {
   const { isAuthenticated, session, isLoading: authLoading } = useWillow();
-  const { app, isLoading: appLoading } = useApp(APP_ID);
+  const appLoading = false; // App concept removed
 
   // Determine app state
   const getAppState = (): AppState => {
@@ -321,7 +319,7 @@ function LoginScreen() {
 // ============ SETUP SCREEN ============
 
 function SetupScreen({ did }: { did: string }) {
-  const { registerApp, registerDataset, isRegistering, error: regError } = useRegistration();
+  const { registerDataset, isRegistering, error: regError } = useRegistration();
   const { logout } = useAuth();
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -330,22 +328,11 @@ function SetupScreen({ did }: { did: string }) {
     try {
       setError(null);
 
-      // Step 1: Register the app
-      setStatus('Registering application...');
-      await registerApp({
-        app_id: APP_ID,
-        name: 'Willow Notes',
-        description: 'A decentralized notes application powered by Willow',
-        app_type: 'web',
-        owner_did: did,
-        admins: [],
-      });
-
-      // Step 2: Create the notes collection with schema
+      // Create the notes collection with schema
       setStatus('Creating notes collection...');
       await registerDataset({
         dataset_id: COLLECTION,
-        app_id: APP_ID,
+
         name: 'Notes',
         dataset_path: ['collections'],
         schema: {
@@ -373,7 +360,7 @@ function SetupScreen({ did }: { did: string }) {
       });
 
       setStatus('Setup complete! Refreshing...');
-      // App will automatically transition to 'ready' state when useApp refreshes
+      // Will automatically transition to 'ready' state on refresh
       window.location.reload();
     } catch (err) {
       setError(String(err));
@@ -409,7 +396,7 @@ function SetupScreen({ did }: { did: string }) {
         <div style={{ marginTop: '30px', padding: '15px', background: '#f5f5f5', borderRadius: '6px' }}>
           <h4 style={{ margin: '0 0 10px 0' }}>What happens during setup:</h4>
           <ol style={{ margin: 0, paddingLeft: '20px', color: '#666' }}>
-            <li>Register your app on the Willow network</li>
+            <li>Register your subgrove on the Willow network</li>
             <li>Create a secure, indexed collection for your notes</li>
             <li>Set up cryptographic proofs for data verification</li>
           </ol>
@@ -426,7 +413,7 @@ function MainApp({ did }: { did: string }) {
 
   // Balance hooks
   const { balance } = useBalance(did);
-  const { balance: appBalance } = useAppBalance(APP_ID);
+
 
   // Collection operations
   const { store, update, remove, batchStore } = useCollection(APP_ID, COLLECTION);
@@ -547,7 +534,6 @@ function MainApp({ did }: { did: string }) {
         <h1 style={styles.title}>Willow Notes</h1>
         <div style={styles.statusBar}>
           <span>Balance: {balance?.available?.toLocaleString() || 0} WILL</span>
-          <span>App Fund: {appBalance?.toLocaleString() || 0} WILL</span>
           <span>Notes: {notes.length}</span>
         </div>
         <button style={{ ...styles.button, ...styles.secondaryButton }} onClick={logout}>

@@ -15,7 +15,7 @@
  * Prerequisites:
  * - npm install @willow/react-hooks @willow/sdk
  * - Run a local Willow node
- * - Register and fund an app
+ * - Register and fund a subgrove
  */
 
 import React, { useState } from 'react';

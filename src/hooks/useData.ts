@@ -16,7 +16,6 @@ interface UseDataOptions extends SWRConfiguration {
  * Hook for fetching data with caching
  */
 export function useData(
-  appId: string,
   datasetId: string,
   key: string | null,
   options?: UseDataOptions
@@ -30,15 +29,15 @@ export function useData(
 
     // Use unverified method if skipVerification is true
     if (options?.skipVerification) {
-      return client.data.getDataUnverified(appId, datasetId, key);
+      return client.data.getDataUnverified(datasetId, key);
     }
 
     // Default to verified data fetching
-    return client.data.getData(appId, datasetId, key);
-  }, [client, isAuthenticated, appId, datasetId, key, options?.skipVerification]);
+    return client.data.getData(datasetId, key);
+  }, [client, isAuthenticated, datasetId, key, options?.skipVerification]);
 
   const { data, error, isLoading, isValidating, mutate: swrMutate } = useSWR(
-    client && isAuthenticated && key ? ['data', appId, datasetId, key] : null,
+    client && isAuthenticated && key ? ['data', datasetId, key] : null,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -62,7 +61,7 @@ export function useData(
 /**
  * Hook for data mutations (create, update, delete)
  */
-export function useDataMutation(appId: string, datasetId: string) {
+export function useDataMutation(datasetId: string) {
   const { client, isAuthenticated } = useWillow();
 
   const store = useCallback(async (key: string, value: any) => {
@@ -71,37 +70,37 @@ export function useDataMutation(appId: string, datasetId: string) {
     }
 
     // Store data using batch store API
-    await client.data.storeData(appId, datasetId, { [key]: value });
+    await client.data.storeData(datasetId, { [key]: value });
 
     // Invalidate cache for this key
-    await mutate(['data', appId, datasetId, key]);
+    await mutate(['data', datasetId, key]);
 
     return value;
-  }, [client, isAuthenticated, appId, datasetId]);
+  }, [client, isAuthenticated, datasetId]);
 
   const update = useCallback(async (key: string, value: any) => {
     if (!client || !isAuthenticated) {
       throw new Error('Not authenticated');
     }
 
-    await client.data.updateData(appId, datasetId, key, value);
+    await client.data.updateData(datasetId, key, value);
 
     // Update cache
-    await mutate(['data', appId, datasetId, key], value, false);
+    await mutate(['data', datasetId, key], value, false);
 
     return value;
-  }, [client, isAuthenticated, appId, datasetId]);
+  }, [client, isAuthenticated, datasetId]);
 
   const remove = useCallback(async (key: string) => {
     if (!client || !isAuthenticated) {
       throw new Error('Not authenticated');
     }
 
-    await client.data.deleteData(appId, datasetId, key);
+    await client.data.deleteData(datasetId, key);
 
     // Remove from cache
-    await mutate(['data', appId, datasetId, key], undefined, false);
-  }, [client, isAuthenticated, appId, datasetId]);
+    await mutate(['data', datasetId, key], undefined, false);
+  }, [client, isAuthenticated, datasetId]);
 
   return {
     store,
@@ -113,7 +112,7 @@ export function useDataMutation(appId: string, datasetId: string) {
 /**
  * Hook for batch operations
  */
-export function useBatchData(appId: string, datasetId: string) {
+export function useBatchData(datasetId: string) {
   const { client, isAuthenticated } = useWillow();
 
   const batchStore = useCallback(async (records: Array<{ key: string; value: any }>) => {
@@ -121,21 +120,21 @@ export function useBatchData(appId: string, datasetId: string) {
       throw new Error('Not authenticated');
     }
 
-    await client.data.batchStore(appId, datasetId, records);
+    await client.data.batchStore(datasetId, records);
 
     // Invalidate cache for all keys
     await Promise.all(
-      records.map(({ key }) => mutate(['data', appId, datasetId, key]))
+      records.map(({ key }) => mutate(['data', datasetId, key]))
     );
-  }, [client, isAuthenticated, appId, datasetId]);
+  }, [client, isAuthenticated, datasetId]);
 
   const getMultiple = useCallback(async (keys: string[]): Promise<Record<string, DataRecord>> => {
     if (!client || !isAuthenticated) {
       throw new Error('Not authenticated');
     }
 
-    return client.data.getMultiple(appId, datasetId, keys);
-  }, [client, isAuthenticated, appId, datasetId]);
+    return client.data.getMultiple(datasetId, keys);
+  }, [client, isAuthenticated, datasetId]);
 
   return {
     batchStore,

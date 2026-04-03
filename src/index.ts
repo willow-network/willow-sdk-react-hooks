@@ -9,8 +9,6 @@ export { useData, useDataMutation, useBatchData } from './hooks/useData';
 export { useCollection } from './hooks/useCollection';
 export {
   useRegistration,
-  useApps,
-  useApp,
   useSubgroves,
   useSubgrove,
   useDidPermissions,
@@ -33,7 +31,7 @@ export {
   useToken,
   useTokenInfo,
   useBalance,
-  useAppBalance,
+  useSubgroveBalance,
   useFeeSchedule,
 } from './hooks/useToken';
 export type {
@@ -86,9 +84,7 @@ export type {
 export type {
   WillowConfig,
   DidDocument,
-  AppRegistration,
   DatasetRegistration,
-  RegisterAppRequest,
   RegisterDatasetRequest,
   DataRecord,
   SchemaDefinition,

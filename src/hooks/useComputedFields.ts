@@ -40,23 +40,23 @@ export function useComputedFieldRegistry() {
   // State to trigger re-renders when registry changes
   const [, setVersion] = useState(0);
 
-  const register = useCallback((appId: string, datasetId: string, fields: ComputedFieldSet) => {
-    registryRef.current.register(appId, datasetId, fields);
+  const register = useCallback((datasetId: string, fields: ComputedFieldSet) => {
+    registryRef.current.register(datasetId, datasetId, fields);
     setVersion(v => v + 1);
   }, []);
 
-  const unregister = useCallback((appId: string, datasetId: string): boolean => {
-    const result = registryRef.current.unregister(appId, datasetId);
+  const unregister = useCallback((datasetId: string): boolean => {
+    const result = registryRef.current.unregister(datasetId, datasetId);
     setVersion(v => v + 1);
     return result;
   }, []);
 
-  const get = useCallback((appId: string, datasetId: string): ComputedFieldSet | undefined => {
-    return registryRef.current.get(appId, datasetId);
+  const get = useCallback((datasetId: string): ComputedFieldSet | undefined => {
+    return registryRef.current.get(datasetId, datasetId);
   }, []);
 
-  const has = useCallback((appId: string, datasetId: string): boolean => {
-    return registryRef.current.has(appId, datasetId);
+  const has = useCallback((datasetId: string): boolean => {
+    return registryRef.current.has(datasetId, datasetId);
   }, []);
 
   const clear = useCallback(() => {
@@ -94,7 +94,7 @@ interface UseComputedQueryOptions extends SWRConfiguration {
  * This combines the standard useQuery hook with computed field support,
  * automatically applying computed fields to the query results.
  *
- * @param appId - The application ID
+ * 
  * @param datasetId - The dataset ID
  * @param query - The query request, or null to skip the query
  * @param options - Query options including computed fields
@@ -126,14 +126,13 @@ interface UseComputedQueryOptions extends SWRConfiguration {
  * ```
  */
 export function useComputedQuery(
-  appId: string,
   datasetId: string,
   query: QueryRequest | null,
   options?: UseComputedQueryOptions
 ) {
   const { computedFields, ...queryOptions } = options || {};
 
-  const result = useQuery(appId, datasetId, query, queryOptions);
+  const result = useQuery(datasetId, query, queryOptions);
 
   // Apply computed fields to the documents
   const computedDocuments = useMemo(() => {
@@ -168,7 +167,7 @@ export function useComputedQuery(
  *
  * This combines the standard usePaginatedQuery hook with computed field support.
  *
- * @param appId - The application ID
+ * 
  * @param datasetId - The dataset ID
  * @param baseQuery - The base query request (without offset/limit)
  * @param pageSize - Number of items per page (default: 20)
@@ -210,7 +209,6 @@ export function useComputedQuery(
  * ```
  */
 export function usePaginatedComputedQuery(
-  appId: string,
   datasetId: string,
   baseQuery: Omit<QueryRequest, 'offset' | 'limit'>,
   pageSize: number = 20,
@@ -218,7 +216,7 @@ export function usePaginatedComputedQuery(
 ) {
   const { computedFields, ...queryOptions } = options || {};
 
-  const result = usePaginatedQuery(appId, datasetId, baseQuery, pageSize, queryOptions);
+  const result = usePaginatedQuery(datasetId, baseQuery, pageSize, queryOptions);
 
   // Apply computed fields to the documents
   const computedDocuments = useMemo(() => {
