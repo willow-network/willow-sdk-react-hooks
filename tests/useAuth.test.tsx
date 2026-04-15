@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderHook, act } from '@testing-library/react-hooks';
+import { renderHook, act } from '@testing-library/react';
 import { WillowProvider } from '../src/providers/WillowProvider';
 import { useAuth } from '../src/hooks/useAuth';
 import { WillowClient } from '@willow/sdk';
