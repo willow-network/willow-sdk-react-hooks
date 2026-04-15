@@ -116,7 +116,7 @@ export function useFileMutations(subgroveId: string) {
   );
 
   const download = useCallback(
-    async (fileKey: string, storageNodeEndpoint: string): Promise<Buffer> => {
+    async (fileKey: string, storageNodeEndpoint: string): Promise<Uint8Array> => {
       if (!client) throw new Error('Client not initialized');
       return client.files.download(
         subgroveId,

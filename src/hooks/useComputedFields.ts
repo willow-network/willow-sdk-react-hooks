@@ -41,22 +41,22 @@ export function useComputedFieldRegistry() {
   const [, setVersion] = useState(0);
 
   const register = useCallback((datasetId: string, fields: ComputedFieldSet) => {
-    registryRef.current.register(datasetId, datasetId, fields);
+    registryRef.current.register(datasetId, fields);
     setVersion(v => v + 1);
   }, []);
 
   const unregister = useCallback((datasetId: string): boolean => {
-    const result = registryRef.current.unregister(datasetId, datasetId);
+    const result = registryRef.current.unregister(datasetId);
     setVersion(v => v + 1);
     return result;
   }, []);
 
   const get = useCallback((datasetId: string): ComputedFieldSet | undefined => {
-    return registryRef.current.get(datasetId, datasetId);
+    return registryRef.current.get(datasetId);
   }, []);
 
   const has = useCallback((datasetId: string): boolean => {
-    return registryRef.current.has(datasetId, datasetId);
+    return registryRef.current.has(datasetId);
   }, []);
 
   const clear = useCallback(() => {
