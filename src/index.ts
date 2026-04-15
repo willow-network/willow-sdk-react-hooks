@@ -54,10 +54,9 @@ export type {
 
 // SQL hooks
 export { useSqlQuery } from './hooks/useSqlQuery';
-export type { SqlQueryHookResult } from './hooks/useSqlQuery';
-// Raw SDK types are re-exported from @willow/sdk — import them directly
-// for the exhaustive RoutedQueryResult<SqlQueryResponse> shape.
-export type { SqlQueryResponse } from '@willow/sdk';
+// SqlQueryResponse / SqlQueryResult come from @willow/sdk — re-exported
+// here for convenience so consumers don't need a second import.
+export type { SqlQueryResponse, SqlQueryResult } from '@willow/sdk';
 
 // Indexing/GraphQL hooks.
 // useSubgroves / useSubgrove live in useRegistration (canonical location

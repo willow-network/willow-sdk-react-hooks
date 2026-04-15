@@ -1,19 +1,11 @@
 import { useCallback } from 'react';
 import useSWR, { SWRConfiguration } from 'swr';
-import type { QuerySource } from '@willow/sdk';
+import type {
+  QuerySource,
+  SqlQueryResponse,
+  SqlQueryResult,
+} from '@willow/sdk';
 import { useWillow } from './useWillow';
-
-// Re-declared locally to avoid a tsup DTS bug where the SDK's nested
-// QueryProof type clashes with a duplicated QueryProof$1 in the generated
-// declarations. The runtime shape is identical to @willow/sdk's
-// `RoutedQueryResult<SqlQueryResponse>`.
-export interface SqlQueryHookResult {
-  columns: string[];
-  rows: any[][];
-  total?: number;
-  warnings?: string[];
-  proof?: any;
-}
 
 interface UseSqlQueryOptions extends SWRConfiguration {
   includeProof?: boolean;
@@ -54,11 +46,7 @@ export function useSqlQuery(
 ) {
   const { client } = useWillow();
 
-  // The cast-to-any return type sidesteps a tsup DTS generation bug where
-  // the SDK's nested `QueryProof` type (re-exported from two places in
-  // @willow/sdk) ends up as `QueryProof$1` in the generated .d.ts and
-  // can't be named. Runtime behaviour is unchanged.
-  const fetcher = useCallback(async (): Promise<any> => {
+  const fetcher = useCallback(async (): Promise<SqlQueryResult | null> => {
     if (!client || !subgroveId || !sql || options?.skip) return null;
 
     return client.sqlQuery(subgroveId, sql, {
@@ -80,8 +68,7 @@ export function useSqlQuery(
     }
   );
 
-  // `data` is a RoutedQueryResult<SqlQueryResponse> from the SDK
-  const result: SqlQueryHookResult | undefined = data?.result;
+  const result: SqlQueryResponse | undefined = data?.result;
 
   return {
     data: result,
