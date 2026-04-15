@@ -82,6 +82,16 @@ export type {
   VerificationStats,
 } from './hooks/useIndexing';
 
+// Subscription hook
+export { useSubscription } from './hooks/useSubscription';
+export type {
+  UseSubscriptionOptions,
+  UseSubscriptionResult,
+  UseSubscriptionPayload,
+} from './hooks/useSubscription';
+// Re-export the SDK's source enum so consumers don't need a second import.
+export type { SubscribeSource } from '@willow/sdk';
+
 // Re-export types from SDK
 export type {
   WillowConfig,
