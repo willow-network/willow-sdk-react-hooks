@@ -39,6 +39,31 @@ export interface UseSubscriptionOptions {
   onPayload?: (payload: UseSubscriptionPayload) => void;
   /** Arbitrary payload passed on `connection_init` (e.g., auth token). */
   connectionPayload?: Record<string, any>;
+  /**
+   * Automatically reconnect on unexpected disconnect. Defaults to
+   * `true`. On a drop the SDK applies exponential backoff; for
+   * `source: 'indexer'` it re-resolves a different indexer via
+   * discovery (the failing indexer is evicted from the cache), so a
+   * dead indexer won't pin the component.
+   *
+   * Reconnection is reconnect-only — messages that were in flight when
+   * the socket dropped are not replayed, and the new connection may
+   * redeliver events the old one already emitted. Dedupe by a stable
+   * field (e.g., block number) if you need exactly-once.
+   */
+  reconnect?: boolean;
+  /** Maximum reconnect attempts before giving up. Defaults to
+   * `Infinity` — keep trying. When exhausted, the hook flips
+   * `isConnected` to `false` permanently. */
+  maxReconnectAttempts?: number;
+  /** Initial reconnect delay (ms). Doubles on each consecutive failure
+   * up to `maxReconnectBackoffMs`. Defaults to 500. */
+  reconnectBackoffMs?: number;
+  /** Maximum reconnect delay (ms). Defaults to 30_000. */
+  maxReconnectBackoffMs?: number;
+  /** Called when a reconnect attempt is scheduled. `attempt` is
+   * 1-indexed; `delayMs` is the backoff we'll sleep before trying. */
+  onReconnect?: (attempt: number, delayMs: number) => void;
 }
 
 export interface UseSubscriptionResult {
@@ -47,11 +72,25 @@ export interface UseSubscriptionResult {
   /**
    * Whether the subscription is currently believed to be open. Flips
    * to `false` when the socket closes (server sent `complete`, the
-   * connection dropped, or the caller unsubscribed).
+   * connection dropped without reconnect, reconnect gave up, or the
+   * caller unsubscribed). During a transient disconnect that the SDK
+   * is about to reconnect, this flips to `false` and `isReconnecting`
+   * flips to `true` — see those two together.
    */
   isConnected: boolean;
   /** Error from the transport or a GraphQL-protocol error. */
   error: unknown | undefined;
+  /**
+   * `true` while the SDK is waiting to reconnect after an unexpected
+   * drop. Flips back to `false` once the next payload arrives on the
+   * new socket (or the subscription gives up).
+   */
+  isReconnecting: boolean;
+  /**
+   * 1-indexed attempt counter while reconnecting; `0` otherwise. A
+   * value of `3` means "about to start reconnect #3".
+   */
+  reconnectAttempt: number;
   /**
    * Manually close the subscription. Also runs automatically on
    * unmount or when the subscription's key (subgroveId/query/opts)
@@ -75,15 +114,17 @@ export interface UseSubscriptionResult {
  * no tail data. The SDK resolves the indexer via discovery or the
  * explicit `indexerUrl` override configured on the `WillowClient`.
  *
+ * Auto-reconnect is on by default. Show a "Reconnecting..." spinner by
+ * reading `isReconnecting` + `reconnectAttempt` from the result.
+ *
  * @example
  * ```tsx
  * function BlockStream({ subgroveId }: { subgroveId: string }) {
- *   const { latest, isConnected, error } = useSubscription(
- *     subgroveId,
- *     'subscription { blockFinalized { height appHash } }',
- *   );
+ *   const { latest, isConnected, isReconnecting, reconnectAttempt, error } =
+ *     useSubscription(subgroveId, 'subscription { blockFinalized { height } }');
  *
  *   if (error) return <ErrorView err={error} />;
+ *   if (isReconnecting) return <Reconnecting attempt={reconnectAttempt} />;
  *   if (!isConnected) return <Connecting />;
  *   return <BlockCard height={latest?.data?.blockFinalized?.height} />;
  * }
@@ -96,7 +137,8 @@ export interface UseSubscriptionResult {
  *
  * @param subgroveId - The subgrove to subscribe to. `null` skips opening.
  * @param query - GraphQL subscription document. `null` skips opening.
- * @param options - Source selection, variables, skip flag, etc.
+ * @param options - Source selection, variables, skip flag, reconnect
+ *   behavior, etc.
  */
 export function useSubscription(
   subgroveId: string | null,
@@ -107,16 +149,22 @@ export function useSubscription(
   const [latest, setLatest] = useState<UseSubscriptionPayload | undefined>();
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<unknown | undefined>();
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const unsubscribeRef = useRef<UnsubscribeFn | null>(null);
 
-  // Stash the latest `onPayload` in a ref so we can change callbacks
-  // between renders without forcing the subscription to be torn down
-  // and re-established. The WS is effectively keyed on
-  // subgroveId/query/source/variables/operationName only.
+  // Stash the latest `onPayload` and `onReconnect` in refs so we can
+  // change callbacks between renders without tearing down the
+  // subscription. The WS is effectively keyed on
+  // subgroveId/query/source/variables/operationName/reconnect-knobs.
   const onPayloadRef = useRef(options.onPayload);
+  const onReconnectRef = useRef(options.onReconnect);
   useEffect(() => {
     onPayloadRef.current = options.onPayload;
   }, [options.onPayload]);
+  useEffect(() => {
+    onReconnectRef.current = options.onReconnect;
+  }, [options.onReconnect]);
 
   // Serialize variables for the effect dependency — SWR does the same
   // in useQuery. A reference change on an identical-looking object
@@ -124,6 +172,10 @@ export function useSubscription(
   const variablesKey = options.variables ? JSON.stringify(options.variables) : '';
   const source: SubscribeSource = options.source ?? 'validator';
   const skip = options.skip ?? false;
+  const reconnect = options.reconnect ?? true;
+  const maxReconnectAttempts = options.maxReconnectAttempts;
+  const reconnectBackoffMs = options.reconnectBackoffMs;
+  const maxReconnectBackoffMs = options.maxReconnectBackoffMs;
 
   useEffect(() => {
     // Reset state on each re-open. Preserves the ergonomic "loading until
@@ -132,6 +184,8 @@ export function useSubscription(
     setLatest(undefined);
     setError(undefined);
     setIsConnected(false);
+    setIsReconnecting(false);
+    setReconnectAttempt(0);
 
     if (!client || !subgroveId || !query || skip) {
       return;
@@ -142,11 +196,31 @@ export function useSubscription(
       variables: options.variables,
       operationName: options.operationName,
       connectionPayload: options.connectionPayload,
+      reconnect,
+      maxReconnectAttempts,
+      reconnectBackoffMs,
+      maxReconnectBackoffMs,
       onError: (err) => {
         setError(err);
         setIsConnected(false);
       },
-      onComplete: () => setIsConnected(false),
+      onComplete: () => {
+        // Definitive end: server `complete`, reconnect gave up, or
+        // reconnect was disabled and the socket dropped. In every case
+        // the subscription is over for real.
+        setIsConnected(false);
+        setIsReconnecting(false);
+        setReconnectAttempt(0);
+      },
+      onReconnect: (attempt, delayMs) => {
+        // A drop happened and the SDK is about to retry. Flip the UI
+        // to the "reconnecting" state; the next `onNext` will flip
+        // `isReconnecting` back to `false`.
+        setIsConnected(false);
+        setIsReconnecting(true);
+        setReconnectAttempt(attempt);
+        onReconnectRef.current?.(attempt, delayMs);
+      },
     };
 
     const unsub = client.subscriptions.subscribe(
@@ -155,6 +229,8 @@ export function useSubscription(
       (payload) => {
         setLatest(payload);
         setIsConnected(true);
+        setIsReconnecting(false);
+        setReconnectAttempt(0);
         onPayloadRef.current?.(payload);
       },
       subOptions,
@@ -178,13 +254,26 @@ export function useSubscription(
     variablesKey,
     options.operationName,
     skip,
+    reconnect,
+    maxReconnectAttempts,
+    reconnectBackoffMs,
+    maxReconnectBackoffMs,
   ]);
 
   const unsubscribe = () => {
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
     setIsConnected(false);
+    setIsReconnecting(false);
+    setReconnectAttempt(0);
   };
 
-  return { latest, isConnected, error, unsubscribe };
+  return {
+    latest,
+    isConnected,
+    error,
+    isReconnecting,
+    reconnectAttempt,
+    unsubscribe,
+  };
 }

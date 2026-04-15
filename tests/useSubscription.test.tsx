@@ -291,4 +291,150 @@ describe('useSubscription', () => {
     expect(unsubscribe).toHaveBeenCalledTimes(1);
     expect(result.current.isConnected).toBe(false);
   });
+
+  // -------------------------------------------------------------------------
+  // Reconnect options forwarding + state surface
+  // -------------------------------------------------------------------------
+
+  it('forwards reconnect knobs to the SDK with sensible defaults', async () => {
+    renderHook(
+      () =>
+        useSubscription('sg-1', 'subscription { x }', {
+          maxReconnectAttempts: 3,
+          reconnectBackoffMs: 100,
+          maxReconnectBackoffMs: 1000,
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(mockClient._subscribeCalls).toHaveLength(1),
+    );
+    const { options } = mockClient._subscribeCalls[0];
+    // Default reconnect: true (matches TS SDK default).
+    expect(options.reconnect).toBe(true);
+    expect(options.maxReconnectAttempts).toBe(3);
+    expect(options.reconnectBackoffMs).toBe(100);
+    expect(options.maxReconnectBackoffMs).toBe(1000);
+  });
+
+  it('forwards reconnect: false to opt out', async () => {
+    renderHook(
+      () =>
+        useSubscription('sg-1', 'subscription { x }', { reconnect: false }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(mockClient._subscribeCalls).toHaveLength(1),
+    );
+    expect(mockClient._subscribeCalls[0].options.reconnect).toBe(false);
+  });
+
+  it('flips isReconnecting + reconnectAttempt when the SDK fires onReconnect', async () => {
+    const { result } = renderHook(
+      () => useSubscription('sg-1', 'subscription { x }'),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(mockClient._subscribeCalls).toHaveLength(1),
+    );
+    const { onNext, options } = mockClient._subscribeCalls[0];
+
+    // Initial payload brings us online.
+    await act(async () => {
+      onNext({ data: { tick: 1 } });
+    });
+    expect(result.current.isConnected).toBe(true);
+    expect(result.current.isReconnecting).toBe(false);
+    expect(result.current.reconnectAttempt).toBe(0);
+
+    // Simulate the SDK announcing a reconnect attempt.
+    await act(async () => {
+      options.onReconnect(1, 500);
+    });
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.isReconnecting).toBe(true);
+    expect(result.current.reconnectAttempt).toBe(1);
+
+    // Next payload after reconnect flips everything back.
+    await act(async () => {
+      onNext({ data: { tick: 2 } });
+    });
+    expect(result.current.isConnected).toBe(true);
+    expect(result.current.isReconnecting).toBe(false);
+    expect(result.current.reconnectAttempt).toBe(0);
+  });
+
+  it('calls the caller-supplied onReconnect (in addition to updating state)', async () => {
+    const onReconnect = jest.fn();
+    renderHook(
+      () =>
+        useSubscription('sg-1', 'subscription { x }', { onReconnect }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(mockClient._subscribeCalls).toHaveLength(1),
+    );
+    const { options } = mockClient._subscribeCalls[0];
+
+    await act(async () => {
+      options.onReconnect(2, 1000);
+    });
+
+    expect(onReconnect).toHaveBeenCalledWith(2, 1000);
+  });
+
+  it('onComplete from the SDK clears isReconnecting as well as isConnected', async () => {
+    const { result } = renderHook(
+      () => useSubscription('sg-1', 'subscription { x }'),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(mockClient._subscribeCalls).toHaveLength(1),
+    );
+    const { options } = mockClient._subscribeCalls[0];
+
+    // Enter reconnecting state.
+    await act(async () => {
+      options.onReconnect(1, 500);
+    });
+    expect(result.current.isReconnecting).toBe(true);
+
+    // SDK gives up: onComplete fires. That's a definitive end, not a
+    // transient drop, so both flags reset.
+    await act(async () => {
+      options.onComplete();
+    });
+    expect(result.current.isReconnecting).toBe(false);
+    expect(result.current.isConnected).toBe(false);
+    expect(result.current.reconnectAttempt).toBe(0);
+  });
+
+  it('re-subscribes when reconnect knobs change', async () => {
+    // Changing the backoff settings is a behavior-relevant change, so
+    // the hook should tear the old sub down and open a new one.
+    const { rerender } = renderHook(
+      ({ backoff }: { backoff: number }) =>
+        useSubscription('sg-1', 'subscription { x }', {
+          reconnectBackoffMs: backoff,
+        }),
+      { wrapper, initialProps: { backoff: 100 } },
+    );
+
+    await waitFor(() =>
+      expect(mockClient._subscribeCalls).toHaveLength(1),
+    );
+    const first = mockClient._subscribeCalls[0];
+
+    rerender({ backoff: 500 });
+    await waitFor(() =>
+      expect(mockClient._subscribeCalls).toHaveLength(2),
+    );
+    expect(first.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(mockClient._subscribeCalls[1].options.reconnectBackoffMs).toBe(500);
+  });
 });
