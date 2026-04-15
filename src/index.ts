@@ -60,8 +60,8 @@ export type { SqlQueryResponse, SqlQueryResult } from '@willow/sdk';
 
 // Indexing/GraphQL hooks.
 // useSubgroves / useSubgrove live in useRegistration (canonical location
-// after the App+Subgrove flattening); don't re-export from useIndexing to
-// avoid duplicate-identifier build errors.
+// after the App+Subgrove flattening). The previous duplicates here were
+// typed against an out-of-date SubgroveInfo shape; they've been removed.
 export {
   useSubgroveStatus,
   useIndexers,
@@ -72,7 +72,6 @@ export {
 } from './hooks/useIndexing';
 export type {
   RetentionWindow,
-  SubgroveInfo,
   SubgroveStatus,
   SubgroveIndexingStatus,
   ChainIndexingStatus,

@@ -11,19 +11,6 @@ export type RetentionWindow =
   | { type: 'Indefinite' }
   | { type: 'VerifyOnly' };
 
-export interface SubgroveInfo {
-  subgrove_id: string;
-  name: string;
-  description?: string;
-  network: string;
-  start_block: number;
-  current_block?: number;
-  status: SubgroveStatus;
-  retention_window?: RetentionWindow;
-  created_at: number;
-  updated_at: number;
-}
-
 export type SubgroveStatus = 'syncing' | 'synced' | 'failed' | 'paused';
 
 export interface SubgroveIndexingStatus {
@@ -77,92 +64,17 @@ export interface VerificationStats {
   average_verification_time_ms: number;
 }
 
-interface UseSubgrovesOptions extends SWRConfiguration {}
+// useSubgroves / useSubgrove live in ./useRegistration — canonical location
+// after the App+Subgrove flattening. They're typed against SubgroveRegistration
+// (the actual server response shape), while the previous duplicates here were
+// typed against an out-of-date SubgroveInfo that didn't match the API.
 
-/**
- * Hook for listing all available subgroves
- */
-export function useSubgroves(options?: UseSubgrovesOptions) {
-  const { config } = useWillow();
-
-  const fetcher = useCallback(async (): Promise<SubgroveInfo[] | null> => {
-    if (!config) return null;
-
-    const response = await fetch(`${config.apiUrl}/subgroves`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch subgroves');
-    }
-
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch subgroves');
-    }
-
-    return data.data || [];
-  }, [config]);
-
-  const { data, error, isLoading, isValidating, mutate } = useSWR(
-    config ? ['subgroves'] : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      ...options,
-    }
-  );
-
-  return {
-    subgroves: data || [],
-    error,
-    isLoading,
-    isValidating,
-    refetch: mutate,
-  };
-}
-
-/**
- * Hook for fetching a specific subgrove
- */
-export function useSubgrove(subgroveId: string | null, options?: UseSubgrovesOptions) {
-  const { config } = useWillow();
-
-  const fetcher = useCallback(async (): Promise<SubgroveInfo | null> => {
-    if (!config || !subgroveId) return null;
-
-    const response = await fetch(`${config.apiUrl}/subgroves/${encodeURIComponent(subgroveId)}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch subgrove');
-    }
-
-    const data = await response.json();
-    if (!data.success || !data.data) {
-      throw new Error(data.error || 'Subgrove not found');
-    }
-
-    return data.data;
-  }, [config, subgroveId]);
-
-  const { data, error, isLoading, isValidating, mutate } = useSWR(
-    config && subgroveId ? ['subgroves', subgroveId] : null,
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      ...options,
-    }
-  );
-
-  return {
-    subgrove: data,
-    error,
-    isLoading,
-    isValidating,
-    refetch: mutate,
-  };
-}
+interface UseIndexingOptions extends SWRConfiguration {}
 
 /**
  * Hook for fetching subgrove indexing status
  */
-export function useSubgroveStatus(subgroveId: string | null, options?: UseSubgrovesOptions) {
+export function useSubgroveStatus(subgroveId: string | null, options?: UseIndexingOptions) {
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<SubgroveIndexingStatus | null> => {
@@ -206,7 +118,7 @@ export function useSubgroveStatus(subgroveId: string | null, options?: UseSubgro
 /**
  * Hook for listing all indexers
  */
-export function useIndexers(options?: UseSubgrovesOptions) {
+export function useIndexers(options?: UseIndexingOptions) {
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<IndexerInfo[] | null> => {
@@ -246,7 +158,7 @@ export function useIndexers(options?: UseSubgrovesOptions) {
 /**
  * Hook for fetching a specific indexer
  */
-export function useIndexer(indexerDid: string | null, options?: UseSubgrovesOptions) {
+export function useIndexer(indexerDid: string | null, options?: UseIndexingOptions) {
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<IndexerInfo | null> => {
@@ -286,7 +198,7 @@ export function useIndexer(indexerDid: string | null, options?: UseSubgrovesOpti
 /**
  * Hook for fetching verification statistics
  */
-export function useVerificationStats(options?: UseSubgrovesOptions) {
+export function useVerificationStats(options?: UseIndexingOptions) {
   const { config } = useWillow();
 
   const fetcher = useCallback(async (): Promise<VerificationStats | null> => {
