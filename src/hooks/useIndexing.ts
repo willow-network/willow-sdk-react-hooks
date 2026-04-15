@@ -327,55 +327,43 @@ interface UseGraphQLOptions {
   variables?: Record<string, any>;
   skip?: boolean;
   refreshInterval?: number;
+  /**
+   * Where to send the query. See `QuerySource` in `@willow/sdk`:
+   * - `'validator'`: consensus-verified chain-tip. Fails for VerifyOnly subgroves.
+   * - `'indexer'`: historical/analytics via an indexer.
+   * - `'auto'` (default): indexer if available, else validator with `fallback: true`.
+   */
+  source?: import('@willow/sdk').QuerySource;
 }
 
 /**
- * Hook for executing GraphQL queries against a subgrove
+ * Hook for executing GraphQL queries against a subgrove.
+ *
+ * Uses the underlying SDK's source-routed `graphqlQuery`, so the hook's
+ * result includes `source` / `fallback` / `indexerDid` telling you where
+ * the data came from.
  */
 export function useGraphQL(
   subgroveId: string | null,
   query: string | null,
   options?: UseGraphQLOptions
 ) {
-  const { config } = useWillow();
+  const { client } = useWillow();
   const [isExecuting, setIsExecuting] = useState(false);
 
-  const fetcher = useCallback(async (): Promise<GraphQLResponse | null> => {
-    if (!config || !subgroveId || !query || options?.skip) return null;
-
-    const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgroveId)}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query,
-        variables: options?.variables,
-      }),
+  const fetcher = useCallback(async () => {
+    if (!client || !subgroveId || !query || options?.skip) return null;
+    return client.graphqlQuery(subgroveId, query, {
+      variables: options?.variables,
+      source: options?.source ?? 'auto',
     });
+  }, [client, subgroveId, query, options?.variables, options?.skip, options?.source]);
 
-    if (!response.ok) {
-      throw new Error('GraphQL query failed');
-    }
-
-    const data = await response.json();
-
-    // Handle both direct GraphQL response and wrapped API response
-    if (data.success !== undefined) {
-      if (!data.success) {
-        throw new Error(data.error || 'GraphQL query failed');
-      }
-      return data.data;
-    }
-
-    return data;
-  }, [config, subgroveId, query, options?.variables, options?.skip]);
-
-  const swrKey = config && subgroveId && query && !options?.skip
-    ? ['graphql', subgroveId, query, JSON.stringify(options?.variables || {})]
+  const swrKey = client && subgroveId && query && !options?.skip
+    ? ['graphql', subgroveId, query, JSON.stringify(options?.variables || {}), options?.source ?? 'auto']
     : null;
 
-  const { data, error, isLoading, isValidating, mutate } = useSWR(
+  const { data: routed, error, isLoading, isValidating, mutate } = useSWR(
     swrKey,
     fetcher,
     {
@@ -385,51 +373,47 @@ export function useGraphQL(
   );
 
   /**
-   * Manually execute a GraphQL query (for mutations or one-off queries)
+   * Manually execute a GraphQL query (for mutations or one-off queries).
+   * Returns the raw GraphQL response for parity with the previous API.
    */
   const execute = useCallback(async (
     customQuery?: string,
     customVariables?: Record<string, any>
   ): Promise<GraphQLResponse> => {
-    if (!config || !subgroveId) {
+    if (!client || !subgroveId) {
       throw new Error('Client not initialized or subgrove ID not provided');
     }
 
     setIsExecuting(true);
 
     try {
-      const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgroveId)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: customQuery || query,
+      const routed = await client.graphqlQuery(
+        subgroveId,
+        customQuery || query || '',
+        {
           variables: customVariables || options?.variables,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('GraphQL query failed');
-      }
-
-      const data = await response.json();
-
-      if (data.success !== undefined && !data.success) {
-        throw new Error(data.error || 'GraphQL query failed');
-      }
-
-      return data.success !== undefined ? data.data : data;
+          source: options?.source ?? 'auto',
+        },
+      );
+      return routed.result as GraphQLResponse;
     } finally {
       setIsExecuting(false);
     }
-  }, [config, subgroveId, query, options?.variables]);
+  }, [client, subgroveId, query, options?.variables, options?.source]);
+
+  const gql = routed?.result as GraphQLResponse | undefined;
 
   return {
-    data: data?.data,
-    errors: data?.errors,
-    proof: data?.proof,
-    verifiedRootHash: data?.verified_root_hash,
+    data: gql?.data,
+    errors: gql?.errors,
+    proof: gql?.proof,
+    verifiedRootHash: (gql as any)?.verified_root_hash,
+    /** Which backend served this query ("validator" | "indexer"). */
+    source: routed?.source,
+    /** True when `auto` routing fell back from indexer to validator. */
+    fallback: routed?.fallback ?? false,
+    /** DID of the indexer that served, when `source === 'indexer'`. */
+    indexerDid: routed?.indexerDid,
     error,
     isLoading,
     isValidating,
