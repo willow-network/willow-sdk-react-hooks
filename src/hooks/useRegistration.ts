@@ -132,6 +132,7 @@ export function useDidPermissions(did: string | null, options?: SWRConfiguration
 export function useRegistration() {
   const { client, isAuthenticated } = useWillow();
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isDeregistering, setIsDeregistering] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const registerDataset = useCallback(async (
@@ -155,9 +156,36 @@ export function useRegistration() {
     }
   }, [client, isAuthenticated]);
 
+  // Deregister a subgrove and trigger an SWR refresh of the subgroves list.
+  // Returns the broadcast tx hash so UIs can show a confirmation link; the
+  // server bumps `deployment_epoch` atomically with the dereg so a
+  // follow-up register will pick up the new config in running indexers.
+  const deregisterSubgrove = useCallback(async (
+    subgroveId: string
+  ): Promise<string> => {
+    if (!client || !isAuthenticated) {
+      throw new Error('Not authenticated');
+    }
+
+    setIsDeregistering(true);
+    setError(null);
+
+    try {
+      const result = await client.deregisterSubgrove(subgroveId);
+      return result.txHash ?? '';
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    } finally {
+      setIsDeregistering(false);
+    }
+  }, [client, isAuthenticated]);
+
   return {
     registerDataset,
+    deregisterSubgrove,
     isRegistering,
+    isDeregistering,
     error,
   };
 }
