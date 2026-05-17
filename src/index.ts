@@ -177,3 +177,26 @@ export type {
   ComputedFieldSet,
   ComputeFunction,
 } from '@willow/sdk';
+
+// Re-export canonical WillowManifest builder from SDK so callers can
+// register BlockchainIndexing subgroves without a second import.
+export { manifest } from '@willow/sdk';
+export {
+  SUPPORTED_CHAINS,
+  MANIFEST_SPEC_VERSION,
+  serializeManifest,
+  parseManifest,
+  validateManifest,
+  ManifestValidationError,
+  isSupportedChain,
+  chainFamily,
+  evmChainId,
+  fromEvmChainId,
+} from '@willow/sdk';
+
+export type {
+  WillowManifest,
+  EvmDataSource,
+  SupportedChain,
+  ChainFamily,
+} from '@willow/sdk';
