@@ -1,7 +1,7 @@
 /**
  * Willow React Hooks - Data Operations Example
  *
- * This example demonstrates comprehensive data operations:
+ * Demonstrates:
  * 1. Store single items
  * 2. Batch store multiple items
  * 3. Get single item (with proof verification)
@@ -15,36 +15,48 @@
  * Prerequisites:
  * - npm install @willow/react-hooks @willow/sdk
  * - Run a local Willow node
- * - Register and fund a subgrove
+ * - Register the dataset first (see app_registration.tsx)
  */
 
 import React, { useState } from 'react';
 import {
   WillowProvider,
-  useWillow,
   useAuth,
   useData,
-  useDataMutation,
   useQuery,
   useCollection,
 } from '@willow/react-hooks';
 
 function DataOperationsContent() {
-  const { isAuthenticated, session } = useWillow();
-  const { generateAndRegister, isGenerating, logout } = useAuth();
+  const { isAuthenticated, generateAndRegister, clearIdentity, isGenerating } = useAuth();
+  const [did, setDid] = useState<string | null>(null);
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !did) {
     return (
       <div style={{ padding: '20px' }}>
         <h1>Willow Data Operations Demo</h1>
-        <button onClick={() => generateAndRegister()} disabled={isGenerating}>
+        <button
+          onClick={async () => {
+            const r = await generateAndRegister();
+            setDid(r.did);
+          }}
+          disabled={isGenerating}
+        >
           {isGenerating ? 'Generating...' : 'Generate DID & Login'}
         </button>
       </div>
     );
   }
 
-  return <AuthenticatedContent did={session!.did} onLogout={logout} />;
+  return (
+    <AuthenticatedContent
+      did={did}
+      onLogout={() => {
+        clearIdentity();
+        setDid(null);
+      }}
+    />
+  );
 }
 
 function AuthenticatedContent({
@@ -54,8 +66,7 @@ function AuthenticatedContent({
   did: string;
   onLogout: () => void;
 }) {
-  const APP_ID = 'data-demo-app';
-  const COLLECTION = 'products';
+  const DATASET = 'products';
 
   const [operationLog, setOperationLog] = useState<string[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>('prod-001');
@@ -64,35 +75,36 @@ function AuthenticatedContent({
     setOperationLog((prev) => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
 
-  // Data mutation hooks
-  const { store, update, remove, batchStore } = useCollection(APP_ID, COLLECTION);
+  // Mutation helpers (store/update/remove + batchStore + getMultiple) live on
+  // useCollection. useCollection is itself just a thin wrapper around
+  // useDataMutation + useBatchData for a single dataset.
+  const { store, update, remove, batchStore } = useCollection(DATASET);
 
-  // Data query hooks
+  // Read a single item with automatic proof verification.
   const {
     data: singleItem,
     isLoading: singleLoading,
     error: singleError,
     refetch: refetchSingle,
-  } = useData(APP_ID, COLLECTION, selectedKey);
+  } = useData(DATASET, selectedKey);
 
-  // Unverified fetch (performance mode)
+  // Same item, but skip proof verification (faster, less safe).
   const {
     data: unverifiedItem,
     isLoading: unverifiedLoading,
     refetch: refetchUnverified,
-  } = useData(APP_ID, COLLECTION, selectedKey, { skipVerification: true });
+  } = useData(DATASET, selectedKey, { skipVerification: true });
 
-  // Query with filters
+  // Filtered query — note `filters`, not `where`.
   const {
     documents: electronicsProducts,
     isLoading: queryLoading,
     refetch: refetchQuery,
-  } = useQuery(APP_ID, COLLECTION, {
-    where: { category: 'electronics' },
+  } = useQuery(DATASET, {
+    filters: { category: 'electronics' },
     limit: 10,
   });
 
-  // 1. Store single item
   const handleStoreSingle = async () => {
     try {
       addLog('Storing single item...');
@@ -103,57 +115,37 @@ function AuthenticatedContent({
         price: 1299.99,
         stock: 50,
       });
-      addLog('✅ Stored product: prod-001');
+      addLog('Stored product: prod-001');
       refetchSingle();
-    } catch (error) {
-      addLog(`❌ Error: ${error}`);
+    } catch (err) {
+      addLog(`Error: ${err}`);
     }
   };
 
-  // 2. Batch store multiple items
   const handleBatchStore = async () => {
     try {
       addLog('Batch storing items...');
       await batchStore([
         {
           key: 'prod-002',
-          value: {
-            id: 'prod-002',
-            name: 'Wireless Mouse',
-            category: 'electronics',
-            price: 49.99,
-            stock: 200,
-          },
+          value: { id: 'prod-002', name: 'Wireless Mouse', category: 'electronics', price: 49.99, stock: 200 },
         },
         {
           key: 'prod-003',
-          value: {
-            id: 'prod-003',
-            name: 'USB-C Cable',
-            category: 'accessories',
-            price: 19.99,
-            stock: 500,
-          },
+          value: { id: 'prod-003', name: 'USB-C Cable', category: 'accessories', price: 19.99, stock: 500 },
         },
         {
           key: 'prod-004',
-          value: {
-            id: 'prod-004',
-            name: 'Monitor 27"',
-            category: 'electronics',
-            price: 399.99,
-            stock: 30,
-          },
+          value: { id: 'prod-004', name: 'Monitor 27"', category: 'electronics', price: 399.99, stock: 30 },
         },
       ]);
-      addLog('✅ Batch stored 3 products');
+      addLog('Batch stored 3 products');
       refetchQuery();
-    } catch (error) {
-      addLog(`❌ Error: ${error}`);
+    } catch (err) {
+      addLog(`Error: ${err}`);
     }
   };
 
-  // 3. Update item
   const handleUpdate = async () => {
     try {
       addLog('Updating item...');
@@ -161,26 +153,25 @@ function AuthenticatedContent({
         id: 'prod-001',
         name: 'Laptop Pro',
         category: 'electronics',
-        price: 1199.99, // Price reduced!
+        price: 1199.99,
         stock: 45,
         on_sale: true,
       });
-      addLog('✅ Updated prod-001 (price reduced, on_sale added)');
+      addLog('Updated prod-001 (price reduced, on_sale added)');
       refetchSingle();
-    } catch (error) {
-      addLog(`❌ Error: ${error}`);
+    } catch (err) {
+      addLog(`Error: ${err}`);
     }
   };
 
-  // 4. Delete item
   const handleDelete = async () => {
     try {
       addLog('Deleting item...');
       await remove('prod-004');
-      addLog('✅ Deleted prod-004');
+      addLog('Deleted prod-004');
       refetchQuery();
-    } catch (error) {
-      addLog(`❌ Error: ${error}`);
+    } catch (err) {
+      addLog(`Error: ${err}`);
     }
   };
 
@@ -195,7 +186,6 @@ function AuthenticatedContent({
         <button onClick={onLogout}>Logout</button>
       </div>
 
-      {/* Store Operations */}
       <section style={{ marginBottom: '30px' }}>
         <h2>1. Store Operations</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -204,7 +194,6 @@ function AuthenticatedContent({
         </div>
       </section>
 
-      {/* Get Single Item (Verified) */}
       <section style={{ marginBottom: '30px' }}>
         <h2>2. Get Single Item (Verified)</h2>
         <div style={{ marginBottom: '10px' }}>
@@ -224,7 +213,7 @@ function AuthenticatedContent({
           <p style={{ color: 'red' }}>Error: {singleError.message}</p>
         ) : singleItem ? (
           <div style={{ background: '#e8f5e9', padding: '10px' }}>
-            <p>✅ Proof verified</p>
+            <p>Proof verified</p>
             <pre>{JSON.stringify(singleItem, null, 2)}</pre>
           </div>
         ) : (
@@ -233,14 +222,13 @@ function AuthenticatedContent({
         <button onClick={() => refetchSingle()}>Refresh (Verified)</button>
       </section>
 
-      {/* Get Unverified (Performance Mode) */}
       <section style={{ marginBottom: '30px' }}>
         <h2>3. Get Unverified (Performance Mode)</h2>
         {unverifiedLoading ? (
           <p>Loading...</p>
         ) : unverifiedItem ? (
           <div style={{ background: '#fff3e0', padding: '10px' }}>
-            <p>⚡ Fetched without proof verification (faster)</p>
+            <p>Fetched without proof verification (faster)</p>
             <pre>{JSON.stringify(unverifiedItem, null, 2)}</pre>
           </div>
         ) : (
@@ -249,7 +237,6 @@ function AuthenticatedContent({
         <button onClick={() => refetchUnverified()}>Refresh (Unverified)</button>
       </section>
 
-      {/* Query with Filters */}
       <section style={{ marginBottom: '30px' }}>
         <h2>4. Query with Filters</h2>
         <p>
@@ -272,7 +259,6 @@ function AuthenticatedContent({
         )}
       </section>
 
-      {/* Update & Delete */}
       <section style={{ marginBottom: '30px' }}>
         <h2>5. Update & Delete</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -281,7 +267,6 @@ function AuthenticatedContent({
         </div>
       </section>
 
-      {/* Operation Log */}
       <section
         style={{
           marginTop: '30px',
@@ -311,11 +296,7 @@ function AuthenticatedContent({
 
 export default function DataOperationsExample() {
   return (
-    <WillowProvider
-      config={{
-        apiUrl: 'http://localhost:3031',
-      }}
-    >
+    <WillowProvider config={{ apiUrl: 'http://localhost:3031' }}>
       <DataOperationsContent />
     </WillowProvider>
   );

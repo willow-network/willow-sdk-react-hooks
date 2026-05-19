@@ -1,14 +1,18 @@
 /**
  * Willow React Hooks - Token and Validator Operations Example
  *
- * This example demonstrates economic operations:
+ * Demonstrates read-only economic operations:
  * 1. Query token information
  * 2. Check DID balances
- * 3. Check app balances
+ * 3. Check subgrove balances
  * 4. View fee schedules
  * 5. List validators
  * 6. View validator details
  * 7. View staking statistics
+ *
+ * Note: transfer and fundSubgrove are write operations. They go through the
+ * consensus client (`useWillow().client.consensus.transfer(...)` etc.) and
+ * aren't covered by these read-only hooks.
  *
  * Prerequisites:
  * - npm install @willow/react-hooks @willow/sdk
@@ -18,34 +22,46 @@
 import React, { useState } from 'react';
 import {
   WillowProvider,
-  useWillow,
   useAuth,
   useTokenInfo,
   useBalance,
-
+  useSubgroveBalance,
   useFeeSchedule,
-  useToken,
   useValidators,
   useValidator,
   useValidatorSet,
 } from '@willow/react-hooks';
 
 function TokenValidatorContent() {
-  const { isAuthenticated, session } = useWillow();
-  const { generateAndRegister, isGenerating, logout } = useAuth();
+  const { isAuthenticated, generateAndRegister, clearIdentity, isGenerating } = useAuth();
+  const [did, setDid] = useState<string | null>(null);
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !did) {
     return (
       <div style={{ padding: '20px' }}>
         <h1>Willow Token & Validator Demo</h1>
-        <button onClick={() => generateAndRegister()} disabled={isGenerating}>
+        <button
+          onClick={async () => {
+            const r = await generateAndRegister();
+            setDid(r.did);
+          }}
+          disabled={isGenerating}
+        >
           {isGenerating ? 'Generating...' : 'Generate DID & Login'}
         </button>
       </div>
     );
   }
 
-  return <AuthenticatedContent did={session!.did} onLogout={logout} />;
+  return (
+    <AuthenticatedContent
+      did={did}
+      onLogout={() => {
+        clearIdentity();
+        setDid(null);
+      }}
+    />
+  );
 }
 
 function AuthenticatedContent({
@@ -55,46 +71,27 @@ function AuthenticatedContent({
   did: string;
   onLogout: () => void;
 }) {
-  const [selectedApp, setSelectedApp] = useState<string>('demo-app');
+  const [selectedSubgrove, setSelectedSubgrove] = useState<string>('demo-subgrove');
   const [selectedValidator, setSelectedValidator] = useState<string | null>(null);
 
-  // ============ TOKEN HOOKS ============
-
-  // Token info
   const { tokenInfo, isLoading: tokenInfoLoading, error: tokenInfoError } = useTokenInfo();
-
-  // DID balance
   const { balance, isLoading: balanceLoading, error: balanceError } = useBalance(did);
-
-  // App balance
-
-
-  // Fee schedule
+  const {
+    balance: subgroveBalance,
+    isLoading: subgroveBalanceLoading,
+    error: subgroveBalanceError,
+  } = useSubgroveBalance(selectedSubgrove);
   const { feeSchedule, isLoading: feeLoading, error: feeError } = useFeeSchedule();
 
-  // Combined token hook (convenience)
-  const { fundSubgrove, transfer, isFunding, isTransferring } = useToken(did);
-
-  // ============ VALIDATOR HOOKS ============
-
-  // List validators
   const {
     validators,
     isLoading: validatorsLoading,
     error: validatorsError,
     refetch: refetchValidators,
   } = useValidators();
-
-  // Get specific validator
   const { validator, isLoading: validatorLoading } = useValidator(selectedValidator);
-
-  // Validator set (with computed totals)
-  const { validatorSet, isLoading: validatorSetLoading } = useValidatorSet();
-
-  // Handle validator selection
-  const handleSelectValidator = (validatorDid: string) => {
-    setSelectedValidator(validatorDid);
-  };
+  const { validatorSet, totalVotingPower, blockHeight, isLoading: validatorSetLoading } =
+    useValidatorSet();
 
   return (
     <div style={{ padding: '20px' }}>
@@ -107,13 +104,11 @@ function AuthenticatedContent({
         <button onClick={onLogout}>Logout</button>
       </div>
 
-      {/* ============ TOKEN SECTION ============ */}
       <div style={{ marginBottom: '40px' }}>
         <h2 style={{ borderBottom: '2px solid #1976d2', paddingBottom: '10px' }}>
-          💰 Token Operations
+          Token Operations
         </h2>
 
-        {/* Token Info */}
         <section style={{ marginBottom: '30px' }}>
           <h3>1. Token Information</h3>
           {tokenInfoLoading ? (
@@ -132,7 +127,10 @@ function AuthenticatedContent({
                 <strong>Decimals:</strong> {tokenInfo.decimals}
               </p>
               <p>
-                <strong>Total Supply:</strong> {tokenInfo.totalSupply?.toLocaleString()}
+                <strong>Circulating supply:</strong> {tokenInfo.circulating_supply}
+              </p>
+              <p>
+                <strong>Max supply:</strong> {tokenInfo.max_supply}
               </p>
             </div>
           ) : (
@@ -140,7 +138,6 @@ function AuthenticatedContent({
           )}
         </section>
 
-        {/* Account Balance */}
         <section style={{ marginBottom: '30px' }}>
           <h3>2. Your Account Balance</h3>
           {balanceLoading ? (
@@ -150,50 +147,51 @@ function AuthenticatedContent({
           ) : balance ? (
             <div style={{ background: '#e8f5e9', padding: '10px' }}>
               <p>
-                <strong>Available:</strong> {balance.available?.toLocaleString() || 0} WILL
+                <strong>Available:</strong> {balance.available} WILL
               </p>
               <p>
-                <strong>Locked:</strong> {balance.locked?.toLocaleString() || 0} WILL
+                <strong>Staked:</strong> {balance.staked} WILL
               </p>
               <p>
-                <strong>Total:</strong> {balance.total?.toLocaleString() || 0} WILL
+                <strong>Locked:</strong> {balance.locked} WILL
+              </p>
+              <p>
+                <strong>Total balance:</strong> {balance.balance} WILL
               </p>
             </div>
           ) : (
-            <p>Balance: 0 WILL</p>
+            <p>No balance data.</p>
           )}
         </section>
 
-        {/* Subgrove Balance */}
         <section style={{ marginBottom: '30px' }}>
           <h3>3. Subgrove Balance</h3>
           <div style={{ marginBottom: '10px' }}>
             <label>
-              App ID:{' '}
+              Subgrove ID:{' '}
               <input
                 type="text"
-                value={selectedApp}
-                onChange={(e) => setSelectedApp(e.target.value)}
+                value={selectedSubgrove}
+                onChange={(e) => setSelectedSubgrove(e.target.value)}
                 style={{ padding: '5px' }}
               />
             </label>
           </div>
-          {appBalanceLoading ? (
-            <p>Loading app balance...</p>
-          ) : appBalanceError ? (
+          {subgroveBalanceLoading ? (
+            <p>Loading subgrove balance...</p>
+          ) : subgroveBalanceError ? (
             <p style={{ color: 'orange' }}>Subgrove not found or no balance</p>
-          ) : appBalance !== undefined ? (
+          ) : subgroveBalance ? (
             <div style={{ background: '#fff3e0', padding: '10px' }}>
               <p>
-                <strong>Subgrove Balance:</strong> {appBalance?.toLocaleString() || 0} WILL
+                <strong>Subgrove balance:</strong> {subgroveBalance.balance} WILL
               </p>
             </div>
           ) : (
-            <p>No app balance data</p>
+            <p>No subgrove balance data</p>
           )}
         </section>
 
-        {/* Fee Schedule */}
         <section style={{ marginBottom: '30px' }}>
           <h3>4. Fee Schedule</h3>
           {feeLoading ? (
@@ -203,13 +201,19 @@ function AuthenticatedContent({
           ) : feeSchedule ? (
             <div style={{ background: '#fce4ec', padding: '10px' }}>
               <p>
-                <strong>Storage per byte:</strong> {feeSchedule.storagePerByte || 'N/A'} WILL
+                <strong>Storage per byte:</strong> {feeSchedule.cost_per_byte} WILL
               </p>
               <p>
-                <strong>Query fee:</strong> {feeSchedule.queryFee || 'N/A'} WILL
+                <strong>Query fee:</strong> {feeSchedule.query_fee} WILL
               </p>
               <p>
-                <strong>Transaction fee:</strong> {feeSchedule.transactionFee || 'N/A'} WILL
+                <strong>Base tx cost:</strong> {feeSchedule.base_tx_cost} WILL
+              </p>
+              <p>
+                <strong>DID registration:</strong> {feeSchedule.did_registration} WILL
+              </p>
+              <p>
+                <strong>Subgrove registration:</strong> {feeSchedule.subgrove_registration} WILL
               </p>
             </div>
           ) : (
@@ -218,13 +222,11 @@ function AuthenticatedContent({
         </section>
       </div>
 
-      {/* ============ VALIDATOR SECTION ============ */}
       <div style={{ marginBottom: '40px' }}>
         <h2 style={{ borderBottom: '2px solid #388e3c', paddingBottom: '10px' }}>
-          🔒 Validator Operations
+          Validator Operations
         </h2>
 
-        {/* List Validators */}
         <section style={{ marginBottom: '30px' }}>
           <h3>5. Active Validators</h3>
           {validatorsLoading ? (
@@ -237,33 +239,25 @@ function AuthenticatedContent({
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                 <thead>
                   <tr style={{ background: '#f5f5f5' }}>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>DID</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>Address</th>
                     <th style={{ padding: '8px', textAlign: 'left' }}>Status</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>Stake</th>
                     <th style={{ padding: '8px', textAlign: 'right' }}>Voting Power</th>
                     <th style={{ padding: '8px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {validators.slice(0, 5).map((v: any, i: number) => (
+                  {validators.slice(0, 5).map((v, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '8px' }}>{v.did?.substring(0, 20)}...</td>
+                      <td style={{ padding: '8px' }}>{v.address.substring(0, 20)}...</td>
                       <td style={{ padding: '8px' }}>
-                        <span
-                          style={{
-                            color: v.status === 'active' ? 'green' : 'orange',
-                          }}
-                        >
+                        <span style={{ color: v.status === 'active' ? 'green' : 'orange' }}>
                           {v.status}
                         </span>
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>
-                        {v.stake?.toLocaleString()}
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>{v.votingPower}%</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{v.voting_power}</td>
                       <td style={{ padding: '8px', textAlign: 'center' }}>
                         <button
-                          onClick={() => handleSelectValidator(v.did)}
+                          onClick={() => setSelectedValidator(v.address)}
                           style={{ fontSize: '12px' }}
                         >
                           Details
@@ -280,7 +274,6 @@ function AuthenticatedContent({
           )}
         </section>
 
-        {/* Validator Details */}
         {selectedValidator && (
           <section style={{ marginBottom: '30px' }}>
             <h3>6. Validator Details</h3>
@@ -289,17 +282,22 @@ function AuthenticatedContent({
             ) : validator ? (
               <div style={{ background: '#e8f5e9', padding: '10px' }}>
                 <p>
-                  <strong>DID:</strong> {validator.did}
+                  <strong>Address:</strong> {validator.address}
                 </p>
                 <p>
                   <strong>Status:</strong> {validator.status}
                 </p>
                 <p>
-                  <strong>Stake:</strong> {validator.stake?.toLocaleString()} WILL
+                  <strong>Voting power:</strong> {validator.voting_power}
                 </p>
                 <p>
-                  <strong>Voting Power:</strong> {validator.votingPower}%
+                  <strong>Proposer priority:</strong> {validator.proposer_priority}
                 </p>
+                {validator.moniker && (
+                  <p>
+                    <strong>Moniker:</strong> {validator.moniker}
+                  </p>
+                )}
                 <button onClick={() => setSelectedValidator(null)}>Close</button>
               </div>
             ) : (
@@ -308,7 +306,6 @@ function AuthenticatedContent({
           </section>
         )}
 
-        {/* Validator Set Summary */}
         <section style={{ marginBottom: '30px' }}>
           <h3>7. Validator Set Summary</h3>
           {validatorSetLoading ? (
@@ -316,16 +313,13 @@ function AuthenticatedContent({
           ) : validatorSet ? (
             <div style={{ background: '#f3e5f5', padding: '10px' }}>
               <p>
-                <strong>Total Validators:</strong> {validatorSet.totalValidators}
+                <strong>Block height:</strong> {blockHeight}
               </p>
               <p>
-                <strong>Active Validators:</strong> {validatorSet.activeValidators}
+                <strong>Total validators:</strong> {validatorSet.validators.length}
               </p>
               <p>
-                <strong>Total Staked:</strong> {validatorSet.totalStaked?.toLocaleString()} WILL
-              </p>
-              <p>
-                <strong>Total Voting Power:</strong> {validatorSet.totalVotingPower}
+                <strong>Total voting power:</strong> {totalVotingPower}
               </p>
             </div>
           ) : (
@@ -333,29 +327,13 @@ function AuthenticatedContent({
           )}
         </section>
       </div>
-
-      {/* Economic Model Summary */}
-      <section style={{ marginTop: '40px', padding: '20px', background: '#e8f5e9' }}>
-        <h3>Economic Model Summary</h3>
-        <ul>
-          <li>💰 WILL token for storage fees and staking</li>
-          <li>📊 Pay-per-storage model (automatic deduction)</li>
-          <li>🔒 Validators secure the network via Proof of Stake</li>
-          <li>🔍 Indexers earn rewards for indexing work</li>
-          <li>⚡ Subgroves fund storage to enable data operations</li>
-        </ul>
-      </section>
     </div>
   );
 }
 
 export default function TokenAndValidatorsExample() {
   return (
-    <WillowProvider
-      config={{
-        apiUrl: 'http://localhost:3031',
-      }}
-    >
+    <WillowProvider config={{ apiUrl: 'http://localhost:3031' }}>
       <TokenValidatorContent />
     </WillowProvider>
   );

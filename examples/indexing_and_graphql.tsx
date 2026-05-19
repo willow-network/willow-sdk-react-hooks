@@ -1,7 +1,7 @@
 /**
  * Willow React Hooks - Indexing and GraphQL Example
  *
- * This example demonstrates blockchain indexing features:
+ * Demonstrates blockchain indexing features:
  * 1. Query indexed blockchain data via GraphQL
  * 2. List available subgroves
  * 3. Check indexer status
@@ -19,34 +19,45 @@
 import React, { useState } from 'react';
 import {
   WillowProvider,
-  useWillow,
   useAuth,
   useSubgroves,
   useSubgrove,
   useSubgroveStatus,
   useIndexers,
-  useIndexer,
   useGraphQL,
-  useGraphQLMutation,
   useVerificationStats,
 } from '@willow/react-hooks';
 
 function IndexingContent() {
-  const { isAuthenticated, session } = useWillow();
-  const { generateAndRegister, isGenerating, logout } = useAuth();
+  const { isAuthenticated, generateAndRegister, clearIdentity, isGenerating } = useAuth();
+  const [did, setDid] = useState<string | null>(null);
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !did) {
     return (
       <div style={{ padding: '20px' }}>
         <h1>Willow Indexing & GraphQL Demo</h1>
-        <button onClick={() => generateAndRegister()} disabled={isGenerating}>
+        <button
+          onClick={async () => {
+            const r = await generateAndRegister();
+            setDid(r.did);
+          }}
+          disabled={isGenerating}
+        >
           {isGenerating ? 'Generating...' : 'Generate DID & Login'}
         </button>
       </div>
     );
   }
 
-  return <AuthenticatedContent did={session!.did} onLogout={logout} />;
+  return (
+    <AuthenticatedContent
+      did={did}
+      onLogout={() => {
+        clearIdentity();
+        setDid(null);
+      }}
+    />
+  );
 }
 
 function AuthenticatedContent({
@@ -66,40 +77,32 @@ function AuthenticatedContent({
   }
 }`);
 
-  // List all subgroves
   const { subgroves, isLoading: subgrovesLoading, error: subgrovesError } = useSubgroves();
-
-  // Get specific subgrove details
   const { subgrove, isLoading: subgroveLoading } = useSubgrove(selectedSubgrove);
-
-  // Get subgrove indexing status
   const { status: indexingStatus, isLoading: statusLoading } = useSubgroveStatus(selectedSubgrove);
-
-  // List indexers
   const { indexers, isLoading: indexersLoading } = useIndexers();
 
-  // GraphQL query hook
   const {
-    data: queryResult,
+    data: queryData,
+    errors: queryErrors,
     isLoading: queryLoading,
     error: queryError,
+    source,
+    fallback,
     refetch: refetchQuery,
+    execute,
+    isExecuting,
   } = useGraphQL(selectedSubgrove, customQuery);
 
-  // GraphQL mutation hook (for manual queries)
-  const { execute: executeQuery, isExecuting } = useGraphQLMutation(selectedSubgrove);
-
-  // Verification statistics
   const { stats: verificationStats, isLoading: statsLoading } = useVerificationStats();
 
-  // Handle manual query execution
   const [manualResult, setManualResult] = useState<any>(null);
   const handleManualQuery = async () => {
     try {
-      const result = await executeQuery(customQuery);
+      const result = await execute(customQuery);
       setManualResult(result);
-    } catch (error) {
-      setManualResult({ error: String(error) });
+    } catch (err) {
+      setManualResult({ error: String(err) });
     }
   };
 
@@ -114,7 +117,6 @@ function AuthenticatedContent({
         <button onClick={onLogout}>Logout</button>
       </div>
 
-      {/* Subgrove Selector */}
       <section style={{ marginBottom: '30px' }}>
         <h2>Select Subgrove</h2>
         <select
@@ -128,9 +130,8 @@ function AuthenticatedContent({
         </select>
       </section>
 
-      {/* GraphQL Query */}
       <section style={{ marginBottom: '30px' }}>
-        <h2>1. GraphQL Query (Blockchain Data)</h2>
+        <h2>1. GraphQL Query</h2>
         <textarea
           value={customQuery}
           onChange={(e) => setCustomQuery(e.target.value)}
@@ -138,20 +139,26 @@ function AuthenticatedContent({
         />
         <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
           <button onClick={() => refetchQuery()} disabled={queryLoading}>
-            {queryLoading ? 'Querying...' : 'Execute Query (Auto)'}
+            {queryLoading ? 'Querying...' : 'Execute (Auto)'}
           </button>
           <button onClick={handleManualQuery} disabled={isExecuting}>
-            {isExecuting ? 'Executing...' : 'Execute Query (Manual)'}
+            {isExecuting ? 'Executing...' : 'Execute (Manual)'}
           </button>
         </div>
 
         {queryError && <p style={{ color: 'red' }}>Error: {queryError.message}</p>}
+        {queryErrors && queryErrors.length > 0 && (
+          <pre style={{ color: 'red' }}>{JSON.stringify(queryErrors, null, 2)}</pre>
+        )}
 
-        {queryResult && (
+        {queryData && (
           <div style={{ marginTop: '10px', background: '#e8f5e9', padding: '10px' }}>
-            <p>✅ Query result (with cryptographic proof):</p>
+            <p>
+              Result (source: <code>{source ?? 'unknown'}</code>
+              {fallback ? ', fallback' : ''}):
+            </p>
             <pre style={{ fontSize: '11px', overflow: 'auto', maxHeight: '200px' }}>
-              {JSON.stringify(queryResult, null, 2)}
+              {JSON.stringify(queryData, null, 2)}
             </pre>
           </div>
         )}
@@ -166,7 +173,6 @@ function AuthenticatedContent({
         )}
       </section>
 
-      {/* List Subgroves */}
       <section style={{ marginBottom: '30px' }}>
         <h2>2. Available Subgroves</h2>
         {subgrovesLoading ? (
@@ -177,9 +183,9 @@ function AuthenticatedContent({
           <div>
             <p>Found {subgroves.length} subgroves:</p>
             <ul>
-              {subgroves.slice(0, 5).map((sg: any) => (
-                <li key={sg.id}>
-                  <strong>{sg.id}</strong>: {sg.name || 'Unnamed'}
+              {subgroves.slice(0, 5).map((sg) => (
+                <li key={sg.subgrove_id}>
+                  <strong>{sg.subgrove_id}</strong>: {sg.name || 'Unnamed'}
                 </li>
               ))}
             </ul>
@@ -187,7 +193,6 @@ function AuthenticatedContent({
         )}
       </section>
 
-      {/* Subgrove Details */}
       <section style={{ marginBottom: '30px' }}>
         <h2>3. Subgrove Details</h2>
         {subgroveLoading ? (
@@ -195,16 +200,13 @@ function AuthenticatedContent({
         ) : subgrove ? (
           <div style={{ background: '#f5f5f5', padding: '10px' }}>
             <p>
-              <strong>ID:</strong> {subgrove.id}
+              <strong>ID:</strong> {subgrove.subgrove_id}
             </p>
             <p>
               <strong>Name:</strong> {subgrove.name}
             </p>
             <p>
-              <strong>Status:</strong> {subgrove.status}
-            </p>
-            <p>
-              <strong>Network:</strong> {subgrove.network}
+              <strong>Owner:</strong> {subgrove.owner_did}
             </p>
           </div>
         ) : (
@@ -212,7 +214,6 @@ function AuthenticatedContent({
         )}
       </section>
 
-      {/* Indexing Status */}
       <section style={{ marginBottom: '30px' }}>
         <h2>4. Indexing Status</h2>
         {statusLoading ? (
@@ -220,13 +221,19 @@ function AuthenticatedContent({
         ) : indexingStatus ? (
           <div style={{ background: '#f5f5f5', padding: '10px' }}>
             <p>
-              <strong>Latest Indexed Block:</strong> {indexingStatus.latestBlock || 'N/A'}
+              <strong>Latest Indexed Block:</strong> {indexingStatus.latest_block ?? 'N/A'}
             </p>
             <p>
-              <strong>Chain Head Block:</strong> {indexingStatus.chainHeadBlock || 'N/A'}
+              <strong>Chain Head Block:</strong> {indexingStatus.chain_head_block ?? 'N/A'}
             </p>
             <p>
-              <strong>Synced:</strong> {indexingStatus.synced ? '✅ Yes' : '🔄 Syncing...'}
+              <strong>Blocks Behind:</strong> {indexingStatus.blocks_behind ?? 0}
+            </p>
+            <p>
+              <strong>Synced:</strong> {indexingStatus.synced ? 'Yes' : 'Syncing...'}
+            </p>
+            <p>
+              <strong>Health:</strong> {indexingStatus.health}
             </p>
           </div>
         ) : (
@@ -234,7 +241,6 @@ function AuthenticatedContent({
         )}
       </section>
 
-      {/* List Indexers */}
       <section style={{ marginBottom: '30px' }}>
         <h2>5. Active Indexers</h2>
         {indexersLoading ? (
@@ -243,9 +249,10 @@ function AuthenticatedContent({
           <div>
             <p>Found {indexers.length} indexers:</p>
             <ul>
-              {indexers.slice(0, 5).map((idx: any) => (
+              {indexers.slice(0, 5).map((idx) => (
                 <li key={idx.did}>
-                  <strong>{idx.did?.substring(0, 20)}...</strong> - {idx.status}
+                  <strong>{idx.did.substring(0, 20)}...</strong> — {idx.status}
+                  {idx.moniker ? ` (${idx.moniker})` : ''}
                 </li>
               ))}
             </ul>
@@ -253,7 +260,6 @@ function AuthenticatedContent({
         )}
       </section>
 
-      {/* Verification Stats */}
       <section style={{ marginBottom: '30px' }}>
         <h2>6. Verification Statistics</h2>
         {statsLoading ? (
@@ -261,30 +267,22 @@ function AuthenticatedContent({
         ) : verificationStats ? (
           <div style={{ background: '#e3f2fd', padding: '10px' }}>
             <p>
-              <strong>Total Verifications:</strong> {verificationStats.totalVerifications || 0}
+              <strong>Total queries:</strong> {verificationStats.total_queries ?? 0}
             </p>
             <p>
-              <strong>Successful:</strong> {verificationStats.successful || 0}
+              <strong>Verified queries:</strong> {verificationStats.verified_queries ?? 0}
             </p>
             <p>
-              <strong>Failed:</strong> {verificationStats.failed || 0}
+              <strong>Failed verifications:</strong> {verificationStats.failed_verifications ?? 0}
+            </p>
+            <p>
+              <strong>Avg verification time:</strong>{' '}
+              {verificationStats.average_verification_time_ms ?? 0} ms
             </p>
           </div>
         ) : (
           <p>No verification stats available</p>
         )}
-      </section>
-
-      {/* Benefits Summary */}
-      <section style={{ marginTop: '40px', padding: '20px', background: '#e8f5e9' }}>
-        <h3>Key Benefits of Willow Indexing</h3>
-        <ul>
-          <li>✅ Cryptographic proofs for every query</li>
-          <li>✅ Trustless verification of indexed data</li>
-          <li>✅ Decentralized indexer network</li>
-          <li>✅ Automatic reorg handling</li>
-          <li>✅ 50-100x faster than alternatives</li>
-        </ul>
       </section>
     </div>
   );
@@ -292,11 +290,7 @@ function AuthenticatedContent({
 
 export default function IndexingAndGraphQLExample() {
   return (
-    <WillowProvider
-      config={{
-        apiUrl: 'http://localhost:3031',
-      }}
-    >
+    <WillowProvider config={{ apiUrl: 'http://localhost:3031' }}>
       <IndexingContent />
     </WillowProvider>
   );

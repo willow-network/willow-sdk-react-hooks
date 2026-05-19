@@ -1,19 +1,20 @@
 /**
- * Example demonstrating GroveDB proof verification in React applications
- * 
- * This example shows:
+ * Example demonstrating GroveDB proof verification in React applications.
+ *
+ * Shows:
  * 1. Automatic proof verification with data fetching
- * 2. Manual proof verification
- * 3. Performance mode (no verification)
- * 4. Server-assisted verification
+ * 2. Manual proof verification against a hand-managed proof bytes
+ * 3. Performance mode (skip verification)
+ * 4. Server-assisted verification configuration
  * 5. Query verification
+ * 6. Root-hash comparison against consensus
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   WillowProvider,
-  useWillow,
   useAuth,
+  useWillow,
   useData,
   useQuery,
   useProofVerification,
@@ -21,77 +22,72 @@ import {
   ProofVerificationOptions,
 } from '@willow/react-hooks';
 
-// Example 1: Basic data fetching with automatic proof verification
+const DATASET = 'users';
+const KEY = 'user-123';
+
+// 1: Automatic verification via useData (the default).
 function VerifiedDataExample() {
-  const { data, error, isLoading } = useData('myapp', 'users', 'user123');
+  const { data, error, isLoading } = useData(DATASET, KEY);
 
   if (isLoading) return <div>Loading and verifying data...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
   return (
     <div>
-      <h3>✅ Verified Data</h3>
-      <p>This data has been cryptographically verified against the blockchain consensus.</p>
+      <h3>Verified data</h3>
+      <p>This data has been cryptographically verified against consensus.</p>
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   );
 }
 
-// Example 2: Performance mode - skip verification
+// 2: Performance mode — skip verification.
 function UnverifiedDataExample() {
-  const { data, error, isLoading } = useData(
-    'myapp',
-    'users',
-    'user123',
-    { skipVerification: true }
-  );
+  const { data, error, isLoading } = useData(DATASET, KEY, { skipVerification: true });
 
   if (isLoading) return <div>Loading data (no verification)...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
   return (
     <div>
-      <h3>⚡ Unverified Data (Performance Mode)</h3>
-      <p>This data was fetched without proof verification for better performance.</p>
+      <h3>Unverified data (performance mode)</h3>
+      <p>Fetched without proof verification for lower latency.</p>
       <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   );
 }
 
-// Example 3: Manual proof verification
+// 3: Manual verification, comparing a proof against consensus.
 function ManualVerificationExample() {
-  const { client } = useWillow();
+  const { config } = useWillow();
   const { verifyAgainstConsensus, isVerifying, verificationError } = useProofVerification();
   const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
 
   const handleVerify = async () => {
-    if (!client) return;
+    if (!config) return;
 
     try {
-      // Get proof for some data
-      const proofResponse = await fetch(
-        `${client.config.apiUrl}/proof/myapp/users/user123`
+      const response = await fetch(
+        `${config.apiUrl}/proof/${DATASET}/${encodeURIComponent(KEY)}`,
       );
-      const proofData = await proofResponse.json();
+      const proofData = await response.json();
 
       if (proofData.success && proofData.data?.proof) {
-        // Verify against consensus
-        const isValid = await verifyAgainstConsensus(
-          proofData.data.proof,
-          [{ key: 'user123', value: { name: 'Test User' } }]
-        );
+        const isValid = await verifyAgainstConsensus(proofData.data.proof, [
+          { key: KEY, value: { name: 'Test User' } },
+        ]);
         setVerificationResult(isValid);
       }
-    } catch (error) {
-      console.error('Verification failed:', error);
+    } catch (err) {
+      console.error('Verification failed:', err);
     }
   };
 
   return (
     <div>
-      <h3>🔍 Manual Proof Verification</h3>
+      <h3>Manual proof verification</h3>
       <button onClick={handleVerify} disabled={isVerifying}>
-        {isVerifying ? 'Verifying...' : 'Verify Proof'}
+        {isVerifying ? 'Verifying...' : 'Verify proof'}
       </button>
 
       {verificationError && (
@@ -99,19 +95,17 @@ function ManualVerificationExample() {
       )}
 
       {verificationResult !== null && (
-        <div>
-          Verification Result: {verificationResult ? '✅ Valid' : '❌ Invalid'}
-        </div>
+        <div>Verification result: {verificationResult ? 'Valid' : 'Invalid'}</div>
       )}
     </div>
   );
 }
 
-// Example 4: Query with automatic verification
+// 4: Query with automatic verification.
 function VerifiedQueryExample() {
-  const { data, error, isLoading } = useQuery('myapp', 'users', {
-    where: { age: { $gt: 18 } },
-    limit: 10
+  const { data, error, isLoading } = useQuery(DATASET, {
+    filters: { age: { $gt: 18 } },
+    limit: 10,
   });
 
   if (isLoading) return <div>Querying and verifying...</div>;
@@ -119,7 +113,7 @@ function VerifiedQueryExample() {
 
   return (
     <div>
-      <h3>✅ Verified Query Results</h3>
+      <h3>Verified query results</h3>
       <p>Found {data?.documents.length || 0} verified results</p>
       <ul>
         {data?.documents.map((doc: any, i: number) => (
@@ -130,34 +124,24 @@ function VerifiedQueryExample() {
   );
 }
 
-// Example 5: Configuration management
+// 5: Runtime configuration of proof verification.
 function ProofConfigExample() {
-  const {
-    currentOptions,
-    enableServerAssisted,
-    setExpectedRootHash,
-    resetToDefault
-  } = useProofConfig();
+  const { currentOptions, enableServerAssisted, setExpectedRootHash, resetToDefault } =
+    useProofConfig();
 
   return (
     <div>
-      <h3>⚙️ Proof Verification Configuration</h3>
+      <h3>Proof verification configuration</h3>
 
       <div>
-        <button onClick={() => enableServerAssisted()}>
-          Enable Server-Assisted Verification
-        </button>
-        <button onClick={() => setExpectedRootHash('abc123...')}>
-          Set Expected Root Hash
-        </button>
-        <button onClick={resetToDefault}>
-          Reset to Default
-        </button>
+        <button onClick={() => enableServerAssisted()}>Enable server-assisted</button>{' '}
+        <button onClick={() => setExpectedRootHash('abc123...')}>Set expected root hash</button>{' '}
+        <button onClick={resetToDefault}>Reset to default</button>
       </div>
 
       {currentOptions && (
         <div>
-          <h4>Current Options:</h4>
+          <h4>Current options:</h4>
           <pre>{JSON.stringify(currentOptions, null, 2)}</pre>
         </div>
       )}
@@ -165,49 +149,55 @@ function ProofConfigExample() {
   );
 }
 
-// Example 6: Root hash comparison
+// 6: Root-hash comparison.
 function RootHashComparisonExample() {
   const { getVerifiedRootHash, extractRootHash } = useProofVerification();
+  const { config } = useWillow();
   const [consensusRoot, setConsensusRoot] = useState<string>('');
   const [extractedRoot, setExtractedRoot] = useState<string>('');
 
   const compareRootHashes = async () => {
+    if (!config) return;
     try {
-      // Get consensus root hash
       const consensus = await getVerifiedRootHash();
       setConsensusRoot(consensus);
 
-      // Get a proof and extract its root hash
-      const proofResponse = await fetch('/api/proof/myapp/users/user123');
+      const proofResponse = await fetch(
+        `${config.apiUrl}/proof/${DATASET}/${encodeURIComponent(KEY)}`,
+      );
       const proofData = await proofResponse.json();
 
       if (proofData.data?.proof) {
         const extracted = await extractRootHash(proofData.data.proof);
         setExtractedRoot(extracted);
       }
-    } catch (error) {
-      console.error('Failed to get root hashes:', error);
+    } catch (err) {
+      console.error('Failed to get root hashes:', err);
     }
   };
 
   return (
     <div>
-      <h3>🔐 Root Hash Comparison</h3>
-      <button onClick={compareRootHashes}>Compare Root Hashes</button>
+      <h3>Root hash comparison</h3>
+      <button onClick={compareRootHashes}>Compare root hashes</button>
 
       {consensusRoot && (
         <div>
-          <p>Consensus Root: <code>{consensusRoot.substring(0, 16)}...</code></p>
-          <p>Extracted Root: <code>{extractedRoot.substring(0, 16)}...</code></p>
-          <p>Match: {consensusRoot === extractedRoot ? '✅ Yes' : '❌ No'}</p>
+          <p>
+            Consensus root: <code>{consensusRoot.substring(0, 16)}...</code>
+          </p>
+          <p>
+            Extracted root: <code>{extractedRoot.substring(0, 16)}...</code>
+          </p>
+          <p>Match: {consensusRoot === extractedRoot ? 'Yes' : 'No'}</p>
         </div>
       )}
     </div>
   );
 }
 
-// Main app component
 function App() {
+  const { isAuthenticated, generateAndRegister, isGenerating } = useAuth();
   const [showExamples, setShowExamples] = useState({
     verified: true,
     unverified: false,
@@ -217,73 +207,34 @@ function App() {
     rootHash: false,
   });
 
-  // Authentication
-  const { login, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    // Auto-login for demo
-    if (!isAuthenticated) {
-      login('your-private-key-here', 'did:willow:example#key-1');
-    }
-  }, [isAuthenticated, login]);
-
   if (!isAuthenticated) {
-    return <div>Authenticating...</div>;
+    return (
+      <div style={{ padding: '20px' }}>
+        <h2>Proof Verification Examples</h2>
+        <button onClick={() => generateAndRegister()} disabled={isGenerating}>
+          {isGenerating ? 'Generating...' : 'Generate DID & Login'}
+        </button>
+      </div>
+    );
   }
 
   return (
     <div style={{ padding: '20px' }}>
-      <h1>🔐 GroveDB Proof Verification Examples</h1>
+      <h1>GroveDB Proof Verification Examples</h1>
 
       <div style={{ marginBottom: '20px' }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={showExamples.verified}
-            onChange={(e) => setShowExamples(s => ({ ...s, verified: e.target.checked }))}
-          />
-          Verified Data Fetching
-        </label>
-        <label style={{ marginLeft: '10px' }}>
-          <input
-            type="checkbox"
-            checked={showExamples.unverified}
-            onChange={(e) => setShowExamples(s => ({ ...s, unverified: e.target.checked }))}
-          />
-          Unverified (Performance Mode)
-        </label>
-        <label style={{ marginLeft: '10px' }}>
-          <input
-            type="checkbox"
-            checked={showExamples.manual}
-            onChange={(e) => setShowExamples(s => ({ ...s, manual: e.target.checked }))}
-          />
-          Manual Verification
-        </label>
-        <label style={{ marginLeft: '10px' }}>
-          <input
-            type="checkbox"
-            checked={showExamples.query}
-            onChange={(e) => setShowExamples(s => ({ ...s, query: e.target.checked }))}
-          />
-          Query Verification
-        </label>
-        <label style={{ marginLeft: '10px' }}>
-          <input
-            type="checkbox"
-            checked={showExamples.config}
-            onChange={(e) => setShowExamples(s => ({ ...s, config: e.target.checked }))}
-          />
-          Configuration
-        </label>
-        <label style={{ marginLeft: '10px' }}>
-          <input
-            type="checkbox"
-            checked={showExamples.rootHash}
-            onChange={(e) => setShowExamples(s => ({ ...s, rootHash: e.target.checked }))}
-          />
-          Root Hash Comparison
-        </label>
+        {(['verified', 'unverified', 'manual', 'query', 'config', 'rootHash'] as const).map((key) => (
+          <label key={key} style={{ marginRight: '10px' }}>
+            <input
+              type="checkbox"
+              checked={showExamples[key]}
+              onChange={(e) =>
+                setShowExamples((s) => ({ ...s, [key]: e.target.checked }))
+              }
+            />{' '}
+            {key}
+          </label>
+        ))}
       </div>
 
       <div style={{ display: 'grid', gap: '20px' }}>
@@ -298,26 +249,15 @@ function App() {
   );
 }
 
-// App wrapper with provider
 export default function ProofVerificationExample() {
-  // Configure proof verification options
   const proofOptions: ProofVerificationOptions = {
-    // Start with local verification (default)
     serverAssisted: false,
-    // Can be changed to server-assisted:
-    // serverAssisted: true,
-    // apiUrl: 'http://localhost:3031'
   };
 
   return (
     <WillowProvider
-      config={{
-        apiUrl: 'http://localhost:3031',
-        did: 'did:willow:example',
-        privateKey: 'your-private-key-here'
-      }}
+      config={{ apiUrl: 'http://localhost:3031' }}
       proofVerificationOptions={proofOptions}
-      autoConnect={true}
     >
       <App />
     </WillowProvider>

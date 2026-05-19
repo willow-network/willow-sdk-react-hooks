@@ -4,8 +4,7 @@
  * This example demonstrates the core workflow:
  * 1. Setup WillowProvider
  * 2. Generate a DID (identity)
- * 3. Authenticate
- * 4. Store and query data with automatic proof verification
+ * 3. Store and query data with automatic proof verification
  *
  * Prerequisites:
  * - npm install @willow/react-hooks @willow/sdk
@@ -15,35 +14,33 @@
 import React, { useState } from 'react';
 import {
   WillowProvider,
-  useWillow,
   useAuth,
   useData,
   useDataMutation,
 } from '@willow/react-hooks';
 
-// Main app content
 function QuickstartContent() {
-  const { isAuthenticated, session } = useWillow();
-  const { generateAndRegister, isGenerating, logout } = useAuth();
+  const { isAuthenticated, generateAndRegister, clearIdentity, isGenerating } = useAuth();
+  const [did, setDid] = useState<string | null>(null);
   const [status, setStatus] = useState<string[]>([]);
 
   const addStatus = (message: string) => {
     setStatus((prev) => [...prev, message]);
   };
 
-  // 1. Generate DID and authenticate
   const handleLogin = async () => {
     try {
       addStatus('Generating DID...');
-      const { did, privateKey } = await generateAndRegister();
-      addStatus(`DID: ${did}`);
+      const result = await generateAndRegister();
+      setDid(result.did);
+      addStatus(`DID: ${result.did}`);
       addStatus('Authenticated successfully!');
     } catch (error) {
       addStatus(`Error: ${error}`);
     }
   };
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !did) {
     return (
       <div style={{ padding: '20px' }}>
         <h1>Willow React Quickstart</h1>
@@ -60,10 +57,18 @@ function QuickstartContent() {
     );
   }
 
-  return <AuthenticatedContent did={session!.did} onLogout={logout} />;
+  return (
+    <AuthenticatedContent
+      did={did}
+      onLogout={() => {
+        clearIdentity();
+        setDid(null);
+        setStatus([]);
+      }}
+    />
+  );
 }
 
-// Content shown after authentication
 function AuthenticatedContent({
   did,
   onLogout,
@@ -71,16 +76,15 @@ function AuthenticatedContent({
   did: string;
   onLogout: () => void;
 }) {
-  const APP_ID = 'quickstart-app';
-  const COLLECTION = 'users';
+  // Dataset to read/write. In a real app you'd register this with
+  // `useRegistration().registerDataset({...})` before storing data.
+  const DATASET = 'quickstart-users';
 
-  // 2. Data operations
-  const { store } = useDataMutation(APP_ID, COLLECTION);
-  const { data, isLoading, error, refetch } = useData(APP_ID, COLLECTION, 'user-1');
+  const { store } = useDataMutation(DATASET);
+  const { data, isLoading, error, refetch } = useData(DATASET, 'user-1');
 
   const [storeStatus, setStoreStatus] = useState<string>('');
 
-  // Store data with automatic proof verification
   const handleStore = async () => {
     try {
       setStoreStatus('Storing data...');
@@ -91,8 +95,8 @@ function AuthenticatedContent({
       });
       setStoreStatus('Data stored successfully! Proof verified.');
       refetch();
-    } catch (error) {
-      setStoreStatus(`Error: ${error}`);
+    } catch (err) {
+      setStoreStatus(`Error: ${err}`);
     }
   };
 
@@ -107,21 +111,19 @@ function AuthenticatedContent({
         <button onClick={onLogout}>Logout</button>
       </div>
 
-      {/* Store Data */}
       <section style={{ marginBottom: '20px' }}>
         <h2>1. Store Data</h2>
         <button onClick={handleStore}>Store User Data</button>
         {storeStatus && <p>{storeStatus}</p>}
       </section>
 
-      {/* Query Data */}
       <section style={{ marginBottom: '20px' }}>
         <h2>2. Query Data (with Proof Verification)</h2>
         {isLoading && <p>Loading and verifying...</p>}
         {error && <p style={{ color: 'red' }}>Error: {error.message}</p>}
         {data && (
           <div>
-            <p>✅ Data retrieved and proof verified:</p>
+            <p>Data retrieved and proof verified:</p>
             <pre style={{ background: '#f5f5f5', padding: '10px' }}>
               {JSON.stringify(data, null, 2)}
             </pre>
@@ -132,21 +134,16 @@ function AuthenticatedContent({
       </section>
 
       <section style={{ marginTop: '40px', color: '#666' }}>
-        <h3>Quickstart Complete!</h3>
+        <h3>Quickstart Complete</h3>
         <p>All data operations include automatic cryptographic proof verification.</p>
       </section>
     </div>
   );
 }
 
-// App wrapper with provider
 export default function QuickstartExample() {
   return (
-    <WillowProvider
-      config={{
-        apiUrl: 'http://localhost:3031',
-      }}
-    >
+    <WillowProvider config={{ apiUrl: 'http://localhost:3031' }}>
       <QuickstartContent />
     </WillowProvider>
   );

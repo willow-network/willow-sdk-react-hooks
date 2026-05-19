@@ -14,7 +14,7 @@ yarn add @willow/react-hooks @willow/sdk
 
 ```tsx
 import React from 'react';
-import { WillowProvider, useAuth, useCollection } from '@willow/react-hooks';
+import { WillowProvider, useAuth, useCollection, useData } from '@willow/react-hooks';
 
 // 1. Wrap your app with WillowProvider
 function App() {
@@ -28,9 +28,9 @@ function App() {
 // 2. Use hooks in your components
 function NotesApp() {
   const { isAuthenticated, generateAndRegister } = useAuth();
-  const { store, useItem } = useCollection('my-subgrove', 'notes');
+  const { store } = useCollection('notes');
 
-  // Auto-generate DID and login
+  // Auto-generate DID and authenticate
   const handleLogin = async () => {
     const { did, privateKey } = await generateAndRegister();
     console.log('Logged in as:', did);
@@ -45,8 +45,8 @@ function NotesApp() {
     });
   };
 
-  // Use data with automatic caching
-  const { data: note, isLoading } = useItem('note-1');
+  // Read data with automatic caching + proof verification
+  const { data: note, isLoading } = useData('notes', 'note-1');
 
   if (!isAuthenticated) {
     return <button onClick={handleLogin}>Generate DID & Login</button>;
@@ -79,123 +79,132 @@ Access the Willow client and authentication state.
 ```tsx
 const {
   client,          // WillowClient instance
-  session,         // Current session
-  isAuthenticated, // Boolean auth state
+  config,          // WillowConfig
+  isAuthenticated, // Boolean: has an identity been set?
+  hasIdentity,     // Same as isAuthenticated
   isLoading,       // Loading state
   error,           // Error state
-  initialize,      // Initialize with existing credentials
-  login,           // Login with privateKey
-  logout,          // Clear session
+  initialize,      // Initialize with existing credentials (optional)
+  setIdentity,     // (did, privateKey, publicKeyId) => void
+  clearIdentity,   // Clear the active identity
   registerDid,     // Register a DID document
 } = useWillow();
 ```
 
 ### `useAuth()`
 
-Simplified authentication operations.
+Authentication operations.
 
 ```tsx
 const {
   isAuthenticated,
-  session,
-  login,
-  logout,
-  generateAndRegister, // Generate wallet, DID, register, and login
+  hasIdentity,
+  setIdentity,         // (did, privateKey, publicKeyId) => void
+  clearIdentity,       // Clear identity (effectively logout)
+  generateAndRegister, // Generate keypair, build DID document, register it, and set identity
   isGenerating,        // Loading state for generation
 } = useAuth();
 
 // Quick start for new users
 const handleQuickStart = async () => {
   const { did, privateKey, publicKey, didDocument } = await generateAndRegister();
-  // Save privateKey securely for future logins
+  // Save privateKey securely if you want to re-use this DID later
 };
 ```
 
 ### `useData()`
 
-Fetch data with SWR caching.
+Fetch a single record with SWR caching.
 
 ```tsx
 const { data, error, isLoading, refetch } = useData(
-  'subgrove-id',
   'dataset-id',
   'key',
   {
-    // SWR options
+    // Optional SWR options + Willow-specific flags
     refreshInterval: 5000,
-    suspense: true,
+    skipVerification: false,
   }
 );
 ```
 
 ### `useDataMutation()`
 
-Mutations for data operations.
+Mutations for a single dataset.
 
 ```tsx
-const { store, update, remove } = useDataMutation('subgrove-id', 'dataset-id');
+const { store, update, remove } = useDataMutation('dataset-id');
 
-// Create or overwrite
 await store('key', { name: 'value' });
-
-// Update existing
 await update('key', { name: 'new value' });
-
-// Delete
 await remove('key');
 ```
 
 ### `useCollection()`
 
-Work with a specific collection (subgrove + dataset).
+Convenience wrapper combining mutations + batch operations + per-key reads for a single dataset.
 
 ```tsx
 const {
-  collection,     // Collection helper from SDK
+  collection,     // { datasetId, client } helper
   store,          // Store data
   update,         // Update data
   remove,         // Delete data
-  batchStore,     // Batch operations
-  getMultiple,    // Get multiple records
-  useItem,        // Hook for individual items
-} = useCollection('my-subgrove', 'notes');
+  batchStore,     // Batch insert
+  getMultiple,    // Read multiple keys
+  useItem,        // (key) => useData(datasetId, key)
+} = useCollection('notes');
 
-// Use individual items with caching
+// Per-key reads with caching
 const { data: note1 } = useItem('note-1');
 const { data: note2 } = useItem('note-2');
 
-// Batch operations
+// Batch insert
 await batchStore([
   { key: 'note-3', value: { title: 'Note 3' } },
   { key: 'note-4', value: { title: 'Note 4' } },
 ]);
 ```
 
-### `useRegistration()`
+### `useQuery()`
 
-Register subgroves and datasets.
+Query indexed data with filters, sort, and pagination.
 
 ```tsx
-const { registerDataset, isRegistering, error } = useRegistration();
+const { data, documents, isLoading, error, refetch } = useQuery('dataset-id', {
+  filters: { category: 'electronics' },
+  sort: { field: 'price', order: 'asc' },
+  limit: 20,
+});
 
-// Register dataset
-const dataset = await registerDataset({
+// `documents` is a convenience alias for data?.documents
+```
+
+### `useRegistration()`
+
+Register datasets and deregister subgroves.
+
+```tsx
+const { registerDataset, deregisterSubgrove, isRegistering, error } = useRegistration();
+
+await registerDataset({
   dataset_id: 'notes',
-
   name: 'User Notes',
   dataset_path: ['collections'],
   schema: {
     version: 1,
     fields: {
-      title: { type: 'string' },
+      title: { type: 'string', indexed: true, required: true },
       content: { type: 'string' },
     },
-    indexes: [],
+    indexes: [
+      { name: 'by_title', fields: ['title'], unique: false, type: 'hash' },
+    ],
     required_fields: ['title'],
   },
-  owner_did: session.did,
-  writers: [session.did],
-  readers: [session.did],
+  owner_did: myDid,
+  writers: [myDid],
+  readers: [myDid],
 });
 ```
 
@@ -204,31 +213,36 @@ const dataset = await registerDataset({
 Get cryptographic proofs.
 
 ```tsx
-const { proof, error, isLoading } = useProof('subgrove-id', 'dataset-id', 'key');
+const { proof, error, isLoading } = useProof('dataset-id', 'key');
 
 if (proof) {
   console.log('Merkle proof:', proof);
 }
 ```
 
-### `useFiles()`
+### `useFiles()` / `useFileMutations()`
 
-Upload, download, and manage files in FileStorage subgroves.
+Reads live on `useFiles`; uploads/downloads/deletes live on `useFileMutations`.
 
 ```tsx
-import { useFiles } from '@willow/react-hooks';
+import { useFiles, useFileMutations } from '@willow/react-hooks';
 
 function FileManager() {
-  const { files, upload, download, remove, isLoading } = useFiles('my-subgrove', 'media');
+  const { files, isLoading } = useFiles('my-subgrove');
+  const { upload, download, deleteFile } = useFileMutations('my-subgrove');
 
   const handleUpload = async (file: File) => {
-    const data = new Uint8Array(await file.arrayBuffer());
+    const data = Buffer.from(await file.arrayBuffer());
     await upload(file.name, file.name, data, 'https://storage1.example.com');
   };
 
   return (
     <div>
-      {files?.map(f => <div key={f.file_key}>{f.filename} ({f.total_size} bytes)</div>)}
+      {files?.map((f) => (
+        <div key={f.file_key}>
+          {f.filename} ({f.total_size} bytes)
+        </div>
+      ))}
     </div>
   );
 }
@@ -239,13 +253,13 @@ function FileManager() {
 ### Custom Configuration
 
 ```tsx
-<WillowProvider 
+<WillowProvider
   config={{
     apiUrl: 'https://api.willow.network',
     did: 'did:willow:eth:0x...',
     privateKey: process.env.REACT_APP_PRIVATE_KEY,
   }}
-  autoConnect={true} // Auto-login on mount
+  autoConnect={true}
 >
   <App />
 </WillowProvider>
@@ -256,15 +270,13 @@ function FileManager() {
 ```tsx
 function MyComponent() {
   const { error } = useWillow();
-  const { store } = useDataMutation('subgrove', 'dataset');
+  const { store } = useDataMutation('dataset');
 
   const handleStore = async () => {
     try {
       await store('key', data);
-    } catch (error) {
-      if (error.code === 'INSUFFICIENT_PERMISSIONS') {
-        // Handle permission error
-      }
+    } catch (err) {
+      // Handle store error
     }
   };
 
@@ -282,19 +294,18 @@ function MyComponent() {
 import { mutate } from 'swr';
 
 function NoteEditor({ noteId }) {
-  const { data: note } = useData('subgrove', 'notes', noteId);
-  const { update } = useDataMutation('subgrove', 'notes');
+  const { data: note } = useData('notes', noteId);
+  const { update } = useDataMutation('notes');
 
   const handleUpdate = async (newContent) => {
-    // Optimistic update
     const optimisticNote = { ...note, content: newContent };
-    mutate(['data', 'subgrove', 'notes', noteId], optimisticNote, false);
+    mutate(['data', 'notes', noteId], optimisticNote, false);
 
     try {
       await update(noteId, optimisticNote);
-    } catch (error) {
+    } catch (err) {
       // Revert on error
-      mutate(['data', 'subgrove', 'notes', noteId]);
+      mutate(['data', 'notes', noteId]);
     }
   };
 }
@@ -316,15 +327,14 @@ function App() {
 }
 
 function Notes() {
-  // Will suspend while loading
-  const { data } = useData('subgrove', 'notes', 'note-1', { suspense: true });
+  const { data } = useData('notes', 'note-1', { suspense: true });
   return <div>{data.title}</div>;
 }
 ```
 
 ### TypeScript
 
-All hooks are fully typed. Define your data types:
+All hooks are fully typed. Define your data types as you go:
 
 ```tsx
 interface Note {
@@ -335,52 +345,45 @@ interface Note {
 }
 
 function useNotes() {
-  const { data } = useData<Note>('my-subgrove', 'notes', 'note-1');
-  // data is typed as Note | undefined
+  const { data } = useData('notes', 'note-1');
+  // Cast at the call-site if you want sharper inference.
+  return data as Note | null | undefined;
 }
 ```
 
 ## Best Practices
 
-1. **Provider Placement**: Place `WillowProvider` at the root of your app
-2. **Error Boundaries**: Use React error boundaries for error handling
-3. **Loading States**: Always handle loading states in your UI
-4. **Key Management**: Store private keys securely (never in code)
-5. **Caching**: Leverage SWR's caching for better performance
-6. **Batch Operations**: Use batch operations when updating multiple records
+1. **Provider placement:** put `WillowProvider` at the root of your app
+2. **Error boundaries:** use React error boundaries for fatal errors
+3. **Loading states:** always handle loading states in your UI
+4. **Key management:** store private keys securely (never in source)
+5. **Caching:** leverage SWR caching for repeated reads
+6. **Batch operations:** prefer batch operations when storing many records
 
 ## Examples
 
-See the `examples/` directory for complete working examples:
+See the `examples/` directory:
 
-**Feature Examples:**
-- **`quickstart.tsx`** - Core workflow: setup provider, generate DID, authenticate, store/query data
-- **`app_registration.tsx`** - Register subgroves and manage permissions
-- **`data_operations.tsx`** - Store, batch store, get, query, update, delete operations
-- **`indexing_and_graphql.tsx`** - GraphQL queries, subgroves, indexers, verification stats
-- **`token_and_validators.tsx`** - Token info, balances, fee schedules, validators, staking
+- **`quickstart.tsx`** — minimal: provider, generate DID, store, read
+- **`app_registration.tsx`** — register datasets with schemas and indexes
+- **`data_operations.tsx`** — store, batch store, get, query, update, delete
+- **`indexing_and_graphql.tsx`** — GraphQL queries, subgroves, indexers, verification stats
+- **`token_and_validators.tsx`** — token info, balances, fee schedules, validators (read-only)
+- **`ProofVerificationExample.tsx`** — verified vs unverified reads, manual proof verification, server-assisted mode
+- **`full_app_notes.tsx`** — complete notes app: auth, setup, CRUD, search
 
-**Full Application:**
-- **`full_app_notes.tsx`** - Complete notes app demonstrating auth, setup, CRUD, search, and all hooks working together
-
-### Todo App with Real-time Sync
+### Todo App Sketch
 
 ```tsx
 function TodoApp() {
   const { isAuthenticated } = useAuth();
-  const { store, remove, useItem } = useCollection('todo-subgrove', 'todos');
-  const [todos, setTodos] = useState<string[]>([]);
-
-  // Fetch all todos
-  const todoItems = todos.map(id => {
-    const { data } = useItem(id);
-    return { id, ...data };
-  });
+  const { store, remove, useItem } = useCollection('todos');
+  const [todoIds, setTodoIds] = useState<string[]>([]);
 
   const addTodo = async (text: string) => {
     const id = `todo-${Date.now()}`;
     await store(id, { text, completed: false });
-    setTodos([...todos, id]);
+    setTodoIds((prev) => [...prev, id]);
   };
 
   const toggleTodo = async (id: string, completed: boolean) => {
@@ -389,7 +392,7 @@ function TodoApp() {
 
   const deleteTodo = async (id: string) => {
     await remove(id);
-    setTodos(todos.filter(t => t !== id));
+    setTodoIds((prev) => prev.filter((t) => t !== id));
   };
 
   // ... render UI
