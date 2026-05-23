@@ -255,7 +255,7 @@ function FileManager() {
 ```tsx
 <WillowProvider
   config={{
-    apiUrl: 'https://api.willow.network',
+    apiUrl: 'https://api.willow.tech',
     did: 'did:willow:eth:0x...',
     privateKey: process.env.REACT_APP_PRIVATE_KEY,
   }}
