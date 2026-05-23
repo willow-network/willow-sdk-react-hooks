@@ -133,6 +133,22 @@ export type {
 // File storage hooks
 export { useFiles, useFileMetadata, useFileMutations, useUnregisterStorageNode } from './hooks/useFiles';
 
+// Verifiable Ethereum state-read hooks.
+export { useEthState, useEthCall, useErc20Balance } from './hooks/useEthState';
+export type {
+  StateProof,
+  StorageSlotProof,
+  AccountState,
+  VerifiedStateRead,
+  VerifiedCall,
+  VerifiedStorage,
+  EthCallRequestBody,
+  EthStateRequest,
+  EthVerifiableRpcResponse,
+  MptProof,
+  StateVerifyMode,
+} from '@willow/sdk';
+
 // Privacy hooks
 export {
   useKeyGrant,
