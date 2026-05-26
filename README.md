@@ -1,20 +1,20 @@
 # Willow React Hooks
 
-React hooks for easy integration with the Willow network. Built on top of `@willow/sdk`.
+React hooks for easy integration with the Willow network. Built on top of `@willow-network/sdk`.
 
 ## Installation
 
 ```bash
-npm install @willow/react-hooks @willow/sdk
+npm install @willow-network/react-hooks @willow-network/sdk
 # or
-yarn add @willow/react-hooks @willow/sdk
+yarn add @willow-network/react-hooks @willow-network/sdk
 ```
 
 ## Quick Start
 
 ```tsx
 import React from 'react';
-import { WillowProvider, useAuth, useCollection, useData } from '@willow/react-hooks';
+import { WillowProvider, useAuth, useCollection, useData } from '@willow-network/react-hooks';
 
 // 1. Wrap your app with WillowProvider
 function App() {
@@ -225,7 +225,7 @@ if (proof) {
 Reads live on `useFiles`; uploads/downloads/deletes live on `useFileMutations`.
 
 ```tsx
-import { useFiles, useFileMutations } from '@willow/react-hooks';
+import { useFiles, useFileMutations } from '@willow-network/react-hooks';
 
 function FileManager() {
   const { files, isLoading } = useFiles('my-subgrove');
