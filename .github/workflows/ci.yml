@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: willow-sdk-react-hooks
+      - uses: actions/checkout@v4
+        with:
+          repository: willow-network/willow-sdk-typescript
+          path: willow-sdk-typescript
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build sibling @willow-network/sdk
+        working-directory: willow-sdk-typescript
+        run: |
+          npm ci
+          npm run build
+      - working-directory: willow-sdk-react-hooks
+        run: |
+          npm install ../willow-sdk-typescript
+          npm install
+          npm run build
+          npm run lint
+          npm test
