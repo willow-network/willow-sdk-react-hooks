@@ -58,10 +58,7 @@ export { useSqlQuery } from './hooks/useSqlQuery';
 // here for convenience so consumers don't need a second import.
 export type { SqlQueryResponse, SqlQueryResult } from '@willow-network/sdk';
 
-// Indexing/GraphQL hooks.
-// useSubgroves / useSubgrove live in useRegistration (canonical location
-// after the App+Subgrove flattening). The previous duplicates here were
-// typed against an out-of-date SubgroveInfo shape; they've been removed.
+// Indexing/GraphQL hooks. useSubgroves / useSubgrove live in useRegistration.
 export {
   useSubgroveStatus,
   useIndexers,
