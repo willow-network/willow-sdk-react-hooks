@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import useSWR, { SWRConfiguration } from 'swr';
-import { HistoricalQueryRequest, HistoricalQueryResponse, CheckpointInfo } from '@willow/sdk';
+import { HistoricalQueryRequest, HistoricalQueryResponse, CheckpointInfo } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 interface UseHistoricalQueryOptions extends SWRConfiguration {

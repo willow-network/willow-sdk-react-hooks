@@ -3,7 +3,7 @@ import type {
   SubscribeOptions,
   SubscribeSource,
   UnsubscribeFn,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 /**

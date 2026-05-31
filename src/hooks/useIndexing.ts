@@ -240,12 +240,12 @@ interface UseGraphQLOptions {
   skip?: boolean;
   refreshInterval?: number;
   /**
-   * Where to send the query. See `QuerySource` in `@willow/sdk`:
+   * Where to send the query. See `QuerySource` in `@willow-network/sdk`:
    * - `'validator'`: consensus-verified chain-tip. Fails for VerifyOnly subgroves.
    * - `'indexer'`: historical/analytics via an indexer.
    * - `'auto'` (default): indexer if available, else validator with `fallback: true`.
    */
-  source?: import('@willow/sdk').QuerySource;
+  source?: import('@willow-network/sdk').QuerySource;
 }
 
 /**

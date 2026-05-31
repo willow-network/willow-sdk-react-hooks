@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
-import { WillowClient, WillowConfig, DidDocument, ProofVerificationOptions } from '@willow/sdk';
+import { WillowClient, WillowConfig, DidDocument, ProofVerificationOptions } from '@willow-network/sdk';
 
 interface WillowContextValue {
   client: WillowClient | null;

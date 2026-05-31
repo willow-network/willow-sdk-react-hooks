@@ -1,6 +1,6 @@
 import { useCallback, useState, useMemo } from 'react';
 import useSWR, { SWRConfiguration } from 'swr';
-import { QueryRequest, QueryResponse } from '@willow/sdk';
+import { QueryRequest, QueryResponse } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 interface UseQueryOptions extends SWRConfiguration {

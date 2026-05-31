@@ -4,14 +4,14 @@ import type {
   QuerySource,
   SqlQueryResponse,
   SqlQueryResult,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 interface UseSqlQueryOptions extends SWRConfiguration {
   includeProof?: boolean;
   skip?: boolean;
   /**
-   * Where to send the query. See `QuerySource` in `@willow/sdk`:
+   * Where to send the query. See `QuerySource` in `@willow-network/sdk`:
    * - `'validator'`: consensus-verified chain-tip. Fails for VerifyOnly subgroves.
    * - `'indexer'`: historical/analytics via an indexer.
    * - `'auto'` (default): indexer if available, else validator with `fallback: true`.

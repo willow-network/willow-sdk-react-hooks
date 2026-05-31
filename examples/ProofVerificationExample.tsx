@@ -20,7 +20,7 @@ import {
   useProofVerification,
   useProofConfig,
   ProofVerificationOptions,
-} from '@willow/react-hooks';
+} from '@willow-network/react-hooks';
 
 const DATASET = 'users';
 const KEY = 'user-123';

@@ -1,11 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
 import useSWR, { mutate as globalMutate, SWRConfiguration } from 'swr';
-import { PrivacyOperations } from '@willow/sdk';
-import type { EncryptedKeyGrant } from '@willow/sdk';
+import { PrivacyOperations } from '@willow-network/sdk';
+import type { EncryptedKeyGrant } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
-// Re-export the canonical EncryptedKeyGrant type from @willow/sdk
-export type { EncryptedKeyGrant } from '@willow/sdk';
+// Re-export the canonical EncryptedKeyGrant type from @willow-network/sdk
+export type { EncryptedKeyGrant } from '@willow-network/sdk';
 
 /**
  * Parameters for granting a subgrove encryption key to a DID.

@@ -54,9 +54,9 @@ export type {
 
 // SQL hooks
 export { useSqlQuery } from './hooks/useSqlQuery';
-// SqlQueryResponse / SqlQueryResult come from @willow/sdk — re-exported
+// SqlQueryResponse / SqlQueryResult come from @willow-network/sdk — re-exported
 // here for convenience so consumers don't need a second import.
-export type { SqlQueryResponse, SqlQueryResult } from '@willow/sdk';
+export type { SqlQueryResponse, SqlQueryResult } from '@willow-network/sdk';
 
 // Indexing/GraphQL hooks.
 // useSubgroves / useSubgrove live in useRegistration (canonical location
@@ -90,7 +90,7 @@ export type {
   UseSubscriptionPayload,
 } from './hooks/useSubscription';
 // Re-export the SDK's source enum so consumers don't need a second import.
-export type { SubscribeSource } from '@willow/sdk';
+export type { SubscribeSource } from '@willow-network/sdk';
 
 // Re-export types from SDK
 export type {
@@ -107,10 +107,10 @@ export type {
   HistoricalQueryRequest,
   HistoricalQueryResponse,
   CheckpointInfo,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 
 // Re-export DEVNET_TEST_ACCOUNT from SDK
-export { DEVNET_TEST_ACCOUNT } from '@willow/sdk';
+export { DEVNET_TEST_ACCOUNT } from '@willow-network/sdk';
 
 // ERC-8004 agent identity hooks
 export { useErc8004Agent, useErc8004Reputation, useErc8004Validation, useErc8004AgentDiscovery } from './hooks/useErc8004Agent';
@@ -147,7 +147,7 @@ export type {
   EthVerifiableRpcResponse,
   MptProof,
   StateVerifyMode,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 
 // Privacy hooks
 export {
@@ -186,17 +186,17 @@ export {
   GENERIC_AMM_PAIR_FIELDS,
   LENDING_PROTOCOL_FIELDS,
   LP_SHARE_FIELDS,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 
 export type {
   ComputedFieldDefinition,
   ComputedFieldSet,
   ComputeFunction,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 
 // Re-export canonical WillowManifest builder from SDK so callers can
 // register BlockchainIndexing subgroves without a second import.
-export { manifest } from '@willow/sdk';
+export { manifest } from '@willow-network/sdk';
 export {
   SUPPORTED_CHAINS,
   MANIFEST_SPEC_VERSION,
@@ -208,11 +208,11 @@ export {
   chainFamily,
   evmChainId,
   fromEvmChainId,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 
 export type {
   WillowManifest,
   EvmDataSource,
   SupportedChain,
   ChainFamily,
-} from '@willow/sdk';
+} from '@willow-network/sdk';

@@ -15,7 +15,7 @@
  * aren't covered by these read-only hooks.
  *
  * Prerequisites:
- * - npm install @willow/react-hooks @willow/sdk
+ * - npm install @willow-network/react-hooks @willow-network/sdk
  * - Run a local Willow node
  */
 
@@ -30,7 +30,7 @@ import {
   useValidators,
   useValidator,
   useValidatorSet,
-} from '@willow/react-hooks';
+} from '@willow-network/react-hooks';
 
 function TokenValidatorContent() {
   const { isAuthenticated, generateAndRegister, clearIdentity, isGenerating } = useAuth();

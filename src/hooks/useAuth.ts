@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { generateWallet, createDidFromWallet, DidDocument } from '@willow/sdk';
+import { generateWallet, createDidFromWallet, DidDocument } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 /**

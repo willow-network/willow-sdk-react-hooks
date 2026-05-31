@@ -11,7 +11,7 @@
  * 7. Error handling patterns
  *
  * Prerequisites:
- * - npm install @willow/react-hooks @willow/sdk
+ * - npm install @willow-network/react-hooks @willow-network/sdk
  * - Run a local Willow node
  * - Have WILL tokens to fund the dataset's subgrove
  */
@@ -26,7 +26,7 @@ import {
   useQuery,
   useBalance,
   useSubgroves,
-} from '@willow/react-hooks';
+} from '@willow-network/react-hooks';
 
 interface Note {
   id: string;

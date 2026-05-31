@@ -3,7 +3,7 @@ import useSWR, { SWRConfiguration } from 'swr';
 import {
   RegisterDatasetRequest,
   DatasetRegistration,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 // Types for subgrove (matching Rust SDK)

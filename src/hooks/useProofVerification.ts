@@ -6,7 +6,7 @@ import {
   ProofVerificationOptions,
   GroveDBProofVerifier,
   ProofVerificationResult
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 /**
@@ -168,7 +168,7 @@ export function useProofConfig() {
 
     // Note: The TypeScript SDK's configureProofVerification is global,
     // so this will affect all proof verifications
-    const { configureProofVerification } = require('@willow/sdk');
+    const { configureProofVerification } = require('@willow-network/sdk');
     configureProofVerification(options);
     setCurrentOptions(options);
   }, [config]);

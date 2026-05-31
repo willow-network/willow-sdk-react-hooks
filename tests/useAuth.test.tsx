@@ -2,10 +2,10 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { WillowProvider } from '../src/providers/WillowProvider';
 import { useAuth } from '../src/hooks/useAuth';
-import { WillowClient } from '@willow/sdk';
+import { WillowClient } from '@willow-network/sdk';
 
 // Mock the SDK
-jest.mock('@willow/sdk', () => ({
+jest.mock('@willow-network/sdk', () => ({
   WillowClient: jest.fn().mockImplementation(() => ({
     auth: {
       hasIdentity: jest.fn().mockReturnValue(false),

@@ -2,7 +2,7 @@ import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { WillowProvider } from '../src/providers/WillowProvider';
 import { useSubscription } from '../src/hooks/useSubscription';
-import { WillowClient } from '@willow/sdk';
+import { WillowClient } from '@willow-network/sdk';
 
 // We mock the SDK so each test can drive the subscription surface by
 // calling the captured `onNext` callback directly — no real WebSocket.
@@ -11,7 +11,7 @@ import { WillowClient } from '@willow/sdk';
 // we're testing the *hook* — React state updates, cleanup, option
 // forwarding, skip behavior.
 
-jest.mock('@willow/sdk', () => ({
+jest.mock('@willow-network/sdk', () => ({
   WillowClient: jest.fn(),
 }));
 

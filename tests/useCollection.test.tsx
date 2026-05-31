@@ -3,9 +3,9 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { WillowProvider } from '../src/providers/WillowProvider';
 import { useCollection } from '../src/hooks/useCollection';
-import { WillowClient } from '@willow/sdk';
+import { WillowClient } from '@willow-network/sdk';
 
-jest.mock('@willow/sdk', () => ({
+jest.mock('@willow-network/sdk', () => ({
   WillowClient: jest.fn(),
 }));
 

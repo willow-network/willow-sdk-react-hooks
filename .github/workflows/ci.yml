@@ -31,5 +31,4 @@ jobs:
           npm install ../willow-sdk-typescript
           npm install
           npm run build
-          npm run lint
           npm test

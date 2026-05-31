@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import useSWR, { mutate, SWRConfiguration } from 'swr';
-import { DataRecord } from '@willow/sdk';
+import { DataRecord } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 interface UseDataOptions extends SWRConfiguration {

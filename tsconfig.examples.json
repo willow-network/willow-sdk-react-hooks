@@ -5,7 +5,7 @@
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@willow/react-hooks": ["src/index.ts"]
+      "@willow-network/react-hooks": ["src/index.ts"]
     }
   },
   "include": ["src/**/*", "examples/**/*"],

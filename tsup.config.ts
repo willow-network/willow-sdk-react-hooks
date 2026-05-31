@@ -8,5 +8,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   minify: false,
-  external: ['react', 'react-dom', '@willow/sdk'],
+  external: ['react', 'react-dom', '@willow-network/sdk'],
 });

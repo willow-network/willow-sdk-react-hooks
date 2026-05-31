@@ -5,7 +5,7 @@ import type {
   StateVerifyMode,
   VerifiedCall,
   VerifiedStateRead,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 interface UseEthStateOptions extends SWRConfiguration {

@@ -3,15 +3,15 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { WillowProvider } from '../src/providers/WillowProvider';
 import { useData, useDataMutation, useBatchData } from '../src/hooks/useData';
-import { WillowClient } from '@willow/sdk';
+import { WillowClient } from '@willow-network/sdk';
 
-// Mock @willow/sdk. We build a fresh mock object per test via
+// Mock @willow-network/sdk. We build a fresh mock object per test via
 // `makeMockClient()` below — jest's mock factory runs once at module init,
 // so relying on chained `mockReturnValue` from the factory means state
 // from one test (e.g., `hasIdentity.mockReturnValue(false)`) leaks into
 // the next. Using a factory function per `beforeEach` keeps each test
 // isolated.
-jest.mock('@willow/sdk', () => ({
+jest.mock('@willow-network/sdk', () => ({
   WillowClient: jest.fn(),
 }));
 

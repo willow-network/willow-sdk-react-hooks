@@ -7,7 +7,7 @@ import {
   QueryRequest,
   QueryResponse,
   DataRecord,
-} from '@willow/sdk';
+} from '@willow-network/sdk';
 import { useQuery, usePaginatedQuery } from './useQuery';
 import { SWRConfiguration } from 'swr';
 
@@ -19,7 +19,7 @@ import { SWRConfiguration } from 'swr';
  *
  * @example
  * ```tsx
- * import { useComputedFieldRegistry, UNISWAP_V2_PAIR_FIELDS } from '@willow/react-hooks';
+ * import { useComputedFieldRegistry, UNISWAP_V2_PAIR_FIELDS } from '@willow-network/react-hooks';
  *
  * function MyComponent() {
  *   const { register, unregister, get, has } = useComputedFieldRegistry();
@@ -101,7 +101,7 @@ interface UseComputedQueryOptions extends SWRConfiguration {
  *
  * @example
  * ```tsx
- * import { useComputedQuery, UNISWAP_V2_PAIR_FIELDS } from '@willow/react-hooks';
+ * import { useComputedQuery, UNISWAP_V2_PAIR_FIELDS } from '@willow-network/react-hooks';
  *
  * function PairPrice({ pairId }: { pairId: string }) {
  *   const { documents, isLoading } = useComputedQuery(
@@ -175,7 +175,7 @@ export function useComputedQuery(
  *
  * @example
  * ```tsx
- * import { usePaginatedComputedQuery, GENERIC_AMM_PAIR_FIELDS } from '@willow/react-hooks';
+ * import { usePaginatedComputedQuery, GENERIC_AMM_PAIR_FIELDS } from '@willow-network/react-hooks';
  *
  * function PairsList() {
  *   const {
@@ -257,7 +257,7 @@ export function usePaginatedComputedQuery(
  *
  * @example
  * ```tsx
- * import { useApplyComputedFields, LENDING_PROTOCOL_FIELDS } from '@willow/react-hooks';
+ * import { useApplyComputedFields, LENDING_PROTOCOL_FIELDS } from '@willow-network/react-hooks';
  *
  * function MarketStats({ market }: { market: DataRecord }) {
  *   const enhancedMarket = useApplyComputedFields(market, LENDING_PROTOCOL_FIELDS);
@@ -297,7 +297,7 @@ export function useApplyComputedFields(
  *
  * @example
  * ```tsx
- * import { useApplyComputedFieldsToResponse, UNISWAP_V2_PAIR_FIELDS } from '@willow/react-hooks';
+ * import { useApplyComputedFieldsToResponse, UNISWAP_V2_PAIR_FIELDS } from '@willow-network/react-hooks';
  *
  * function PairsTable({ response }: { response: QueryResponse }) {
  *   const enhancedResponse = useApplyComputedFieldsToResponse(
