@@ -22,7 +22,7 @@ jobs:
       - name: Build sibling @willow-network/sdk
         working-directory: willow-sdk-typescript
         run: |
-          npm ci
+          npm install
           npm run build
       - working-directory: willow-sdk-react-hooks
         run: |
