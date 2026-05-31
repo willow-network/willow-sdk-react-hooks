@@ -22,10 +22,12 @@ jobs:
       - name: Build sibling @willow-network/sdk
         working-directory: willow-sdk-typescript
         run: |
+          rm -f package-lock.json
           npm install
           npm run build
       - working-directory: willow-sdk-react-hooks
         run: |
+          rm -f package-lock.json
           npm install ../willow-sdk-typescript
           npm install
           npm run build
