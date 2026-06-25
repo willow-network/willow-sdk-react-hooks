@@ -4,6 +4,8 @@ module.exports = {
   // since the full project is typechecked by `npm run build`.
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
+  // jsdom omits TextEncoder/TextDecoder globals that @noble/hashes needs.
+  setupFiles: ['<rootDir>/tests/jest.setup.ts'],
   testMatch: ['<rootDir>/tests/**/*.test.{ts,tsx}'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   transform: {

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import useSWR, { SWRConfiguration } from 'swr';
 import {
   RegisterDatasetRequest,
-  DatasetRegistration,
+  BroadcastResult,
 } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
@@ -137,7 +137,7 @@ export function useRegistration() {
 
   const registerDataset = useCallback(async (
     request: RegisterDatasetRequest
-  ): Promise<DatasetRegistration> => {
+  ): Promise<BroadcastResult> => {
     if (!client || !isAuthenticated) {
       throw new Error('Not authenticated');
     }
