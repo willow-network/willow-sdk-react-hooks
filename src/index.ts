@@ -20,6 +20,15 @@ export type {
 export { useProof } from './hooks/useProof';
 export { useQuery, usePaginatedQuery } from './hooks/useQuery';
 export { useProofVerification, useProofConfig } from './hooks/useProofVerification';
+export { useCompletenessVerification } from './hooks/useCompletenessVerification';
+
+// Client-side completeness verification (pure helpers + types).
+export {
+  canonicalEventSetHash,
+  verifyServedEvents,
+  COMMITMENT_LEN,
+} from './completeness';
+export type { Log } from './completeness';
 export {
   useHistoricalQuery,
   useCheckpointStateRoot,
