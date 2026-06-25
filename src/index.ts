@@ -208,7 +208,6 @@ export {
   ComputedFieldRegistry,
   applyComputedFields,
   applyComputedFieldsToResponse,
-  globalComputedFieldRegistry,
   // Pre-built field sets for common protocols
   UNISWAP_V2_PAIR_FIELDS,
   UNISWAP_V2_TOKEN_FIELDS,

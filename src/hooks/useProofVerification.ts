@@ -174,16 +174,6 @@ export function useProofConfig() {
   }, [config]);
 
   /**
-   * Enable server-assisted verification
-   */
-  const enableServerAssisted = useCallback((apiUrl?: string) => {
-    updateProofOptions({
-      serverAssisted: true,
-      apiUrl: apiUrl || config?.apiUrl || 'http://localhost:3031'
-    });
-  }, [config, updateProofOptions]);
-
-  /**
    * Set expected root hash for verification
    */
   const setExpectedRootHash = useCallback((rootHash: string) => {
@@ -203,7 +193,6 @@ export function useProofConfig() {
   return {
     currentOptions,
     updateProofOptions,
-    enableServerAssisted,
     setExpectedRootHash,
     resetToDefault
   };
