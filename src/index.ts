@@ -5,6 +5,7 @@ export type { WillowProviderProps } from "./providers/WillowProvider";
 // Core hooks
 export { useWillow } from "./hooks/useWillow";
 export { useAuth } from "./hooks/useAuth";
+export type { GeneratedIdentity } from "./hooks/useAuth";
 export { useData, useDataMutation, useBatchData } from "./hooks/useData";
 export { useCollection } from "./hooks/useCollection";
 export {

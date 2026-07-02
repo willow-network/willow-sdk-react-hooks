@@ -95,20 +95,43 @@ const {
 
 Authentication operations.
 
+Willow DIDs are **self-certifying**: the id is derived from the public key
+(`did:willow:z…`) by the SDK — it is not chosen. The chain's `RegisterDid`
+check rejects any id that is not exactly this derivation. Because the id is
+bound to the key, a brand-new DID must be **funded before it can be
+registered**: someone transfers ≥ the registration fee to the derived id, then
+the holder registers (the fee is paid from that balance).
+
 ```tsx
 const {
   isAuthenticated,
   hasIdentity,
   setIdentity,         // (did, privateKey, publicKeyId) => void
   clearIdentity,       // Clear identity (effectively logout)
-  generateAndRegister, // Generate keypair, build DID document, register it, and set identity
+  generateIdentity,    // Derive DID + keypair only (no on-chain call) — fund before registering
+  generateAndRegister, // Convenience: derive, register, and set identity (DID must be funded first)
   isGenerating,        // Loading state for generation
 } = useAuth();
 
-// Quick start for new users
+// Two-step bootstrap (the DID is derived, not chosen):
+const { registerDid } = useWillow();
+const handleOnboard = async () => {
+  // 1. Derive the self-certifying DID + keypair (no chain interaction yet).
+  const { did, privateKey, publicKeyId, didDocument } = generateIdentity();
+  // Save privateKey securely to re-use this DID later.
+
+  // 2. Fund `did`: transfer >= the registration fee to the derived id.
+  await sendFunds(did); // your wallet / faucet / sponsor
+
+  // 3. Register (fee is debited from the now-funded id) and activate.
+  await registerDid(didDocument);
+  setIdentity(did, privateKey, publicKeyId);
+};
+
+// Quick start for an already-funded DID:
 const handleQuickStart = async () => {
   const { did, privateKey, publicKey, didDocument } = await generateAndRegister();
-  // Save privateKey securely if you want to re-use this DID later
+  // generateAndRegister only succeeds if the derived DID is already funded.
 };
 ```
 
@@ -256,7 +279,7 @@ function FileManager() {
 <WillowProvider
   config={{
     apiUrl: 'https://api.willow.tech',
-    did: 'did:willow:eth:0x...',
+    did: 'did:willow:z...', // self-certifying DID, derived from your public key
     privateKey: process.env.REACT_APP_PRIVATE_KEY,
   }}
   autoConnect={true}
