@@ -167,12 +167,21 @@ describe('request signing in the hooks', () => {
   });
 
   it('useValidatorSet reads /validators', async () => {
-    mockFetch.mockResolvedValue(
-      jsonResponse({ success: true, data: [{ did: 'did:willow:v1', voting_power: 10 }] }),
-    );
+    // The API's answer, as the live network returns it.
+    const validator = {
+      did: 'did:willow:validator1',
+      total_stake: 100000000000000000000000,
+      self_stake: 100000000000000000000000,
+      active: true,
+      jailed: false,
+      jail_end_time: null,
+      consensus_pubkey: '7KoBf++aEL/Py579EMbPNGslpmHz40rcCSRJV937S4w=',
+    };
+    mockFetch.mockResolvedValue(jsonResponse({ success: true, data: [validator], error: null }));
     const { result } = renderHook(() => useValidatorSet(), { wrapper });
     await waitFor(() => expect(result.current.validators).toHaveLength(1));
     expect(received().map((r) => r.target)).toEqual(['/validators']);
-    expect(result.current.totalVotingPower).toBe(10);
+    expect(result.current.validators[0]).toEqual(validator);
+    expect(result.current.totalStake).toBe(1e23);
   });
 });

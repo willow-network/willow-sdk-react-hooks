@@ -90,8 +90,7 @@ function AuthenticatedContent({
     refetch: refetchValidators,
   } = useValidators();
   const { validator, isLoading: validatorLoading } = useValidator(selectedValidator);
-  const { validatorSet, totalVotingPower, blockHeight, isLoading: validatorSetLoading } =
-    useValidatorSet();
+  const { validatorSet, totalStake, isLoading: validatorSetLoading } = useValidatorSet();
 
   return (
     <div style={{ padding: '20px' }}>
@@ -239,25 +238,25 @@ function AuthenticatedContent({
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                 <thead>
                   <tr style={{ background: '#f5f5f5' }}>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>Address</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>DID</th>
                     <th style={{ padding: '8px', textAlign: 'left' }}>Status</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>Voting Power</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>Stake</th>
                     <th style={{ padding: '8px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {validators.slice(0, 5).map((v, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '8px' }}>{v.address.substring(0, 20)}...</td>
+                      <td style={{ padding: '8px' }}>{v.did.substring(0, 20)}...</td>
                       <td style={{ padding: '8px' }}>
-                        <span style={{ color: v.status === 'active' ? 'green' : 'orange' }}>
-                          {v.status}
+                        <span style={{ color: v.active && !v.jailed ? 'green' : 'orange' }}>
+                          {v.jailed ? 'jailed' : v.active ? 'active' : 'inactive'}
                         </span>
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>{v.voting_power}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{v.total_stake}</td>
                       <td style={{ padding: '8px', textAlign: 'center' }}>
                         <button
-                          onClick={() => setSelectedValidator(v.address)}
+                          onClick={() => setSelectedValidator(v.did)}
                           style={{ fontSize: '12px' }}
                         >
                           Details
@@ -282,20 +281,18 @@ function AuthenticatedContent({
             ) : validator ? (
               <div style={{ background: '#e8f5e9', padding: '10px' }}>
                 <p>
-                  <strong>Address:</strong> {validator.address}
+                  <strong>DID:</strong> {validator.did}
                 </p>
                 <p>
-                  <strong>Status:</strong> {validator.status}
+                  <strong>Status:</strong>{' '}
+                  {validator.jailed ? 'jailed' : validator.active ? 'active' : 'inactive'}
                 </p>
                 <p>
-                  <strong>Voting power:</strong> {validator.voting_power}
+                  <strong>Stake:</strong> {validator.total_stake} (self: {validator.self_stake})
                 </p>
-                <p>
-                  <strong>Proposer priority:</strong> {validator.proposer_priority}
-                </p>
-                {validator.moniker && (
+                {validator.consensus_pubkey && (
                   <p>
-                    <strong>Moniker:</strong> {validator.moniker}
+                    <strong>Consensus key:</strong> {validator.consensus_pubkey}
                   </p>
                 )}
                 <button onClick={() => setSelectedValidator(null)}>Close</button>
@@ -313,13 +310,10 @@ function AuthenticatedContent({
           ) : validatorSet ? (
             <div style={{ background: '#f3e5f5', padding: '10px' }}>
               <p>
-                <strong>Block height:</strong> {blockHeight}
-              </p>
-              <p>
                 <strong>Total validators:</strong> {validatorSet.validators.length}
               </p>
               <p>
-                <strong>Total voting power:</strong> {totalVotingPower}
+                <strong>Total stake:</strong> {totalStake}
               </p>
             </div>
           ) : (

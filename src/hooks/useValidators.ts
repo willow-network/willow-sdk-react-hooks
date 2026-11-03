@@ -2,22 +2,29 @@ import { useCallback } from 'react';
 import useSWR, { SWRConfiguration } from 'swr';
 import { useWillow } from './useWillow';
 
-// Validator types (matching Rust SDK)
+/**
+ * A validator as the API's `/validators` and `/validators/:did` return it.
+ *
+ * Stakes are u128 base units sent as JSON numbers. Above 2^53 they lose
+ * precision when parsed, so treat them as display values.
+ */
 export interface ValidatorInfo {
-  address: string;
-  pub_key: string;
-  voting_power: number;
-  proposer_priority: number;
-  moniker?: string;
-  status: ValidatorStatus;
+  did: string;
+  total_stake: number;
+  self_stake: number;
+  active: boolean;
+  jailed: boolean;
+  /** Unix seconds when the jail period ends, if jailed. */
+  jail_end_time: number | null;
+  consensus_pubkey: string | null;
 }
 
 export type ValidatorStatus = 'active' | 'inactive' | 'jailed' | 'unbonding';
 
 export interface ValidatorSet {
   validators: ValidatorInfo[];
-  total_voting_power: number;
-  block_height: number;
+  /** Sum of `total_stake` over the set (approximate, like the stakes). */
+  total_stake: number;
 }
 
 interface UseValidatorsOptions extends SWRConfiguration {}
@@ -125,8 +132,7 @@ export function useValidatorSet(options?: UseValidatorsOptions) {
 
     return {
       validators,
-      total_voting_power: validators.reduce((sum: number, v: ValidatorInfo) => sum + (v.voting_power ?? 0), 0),
-      block_height: 0,
+      total_stake: validators.reduce((sum, v) => sum + v.total_stake, 0),
     };
   }, [config]);
 
@@ -142,8 +148,7 @@ export function useValidatorSet(options?: UseValidatorsOptions) {
   return {
     validatorSet: data,
     validators: data?.validators || [],
-    totalVotingPower: data?.total_voting_power || 0,
-    blockHeight: data?.block_height || 0,
+    totalStake: data?.total_stake || 0,
     error,
     isLoading,
     isValidating,
