@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import useSWR, { SWRConfiguration } from 'swr';
 import { useWillow } from './useWillow';
+import { apiFetch } from '../internal/apiFetch';
 
 // Indexing types (matching Rust SDK)
 
@@ -339,7 +340,7 @@ export function useGraphQL(
  * Hook for GraphQL mutations (convenience wrapper around useGraphQL)
  */
 export function useGraphQLMutation(subgroveId: string | null) {
-  const { config } = useWillow();
+  const { client, config } = useWillow();
   const [isExecuting, setIsExecuting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -347,7 +348,7 @@ export function useGraphQLMutation(subgroveId: string | null) {
     mutation: string,
     variables?: Record<string, any>
   ): Promise<GraphQLResponse> => {
-    if (!config || !subgroveId) {
+    if (!client || !config || !subgroveId) {
       throw new Error('Client not initialized or subgrove ID not provided');
     }
 
@@ -355,16 +356,19 @@ export function useGraphQLMutation(subgroveId: string | null) {
     setError(null);
 
     try {
-      const response = await fetch(`${config.apiUrl}/graphql/${encodeURIComponent(subgroveId)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // A read of subgrove data: with an identity set, nonce-signed, the only
+      // form that carries the DID's read rights.
+      const response = await apiFetch(
+        client,
+        config.apiUrl,
+        `/graphql/${encodeURIComponent(subgroveId)}`,
+        'read',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: mutation, variables }),
         },
-        body: JSON.stringify({
-          query: mutation,
-          variables,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error('GraphQL mutation failed');
@@ -383,7 +387,7 @@ export function useGraphQLMutation(subgroveId: string | null) {
     } finally {
       setIsExecuting(false);
     }
-  }, [config, subgroveId]);
+  }, [client, config, subgroveId]);
 
   return {
     execute,

@@ -111,30 +111,23 @@ export function useValidatorSet(options?: UseValidatorsOptions) {
   const fetcher = useCallback(async (): Promise<ValidatorSet | null> => {
     if (!config) return null;
 
-    const response = await fetch(`${config.apiUrl}/validators/set`);
+    // The API lists the active set at `/validators`; there is no set route.
+    const response = await fetch(`${config.apiUrl}/validators`);
     if (!response.ok) {
-      // Fall back to basic validators endpoint
-      const fallbackResponse = await fetch(`${config.apiUrl}/validators`);
-      if (!fallbackResponse.ok) {
-        throw new Error('Failed to fetch validator set');
-      }
-
-      const fallbackData = await fallbackResponse.json();
-      const validators = fallbackData.data || [];
-
-      return {
-        validators,
-        total_voting_power: validators.reduce((sum: number, v: ValidatorInfo) => sum + v.voting_power, 0),
-        block_height: 0,
-      };
+      throw new Error('Failed to fetch validator set');
     }
 
     const data = await response.json();
-    if (!data.success || !data.data) {
+    if (!data.success) {
       throw new Error(data.error || 'Failed to fetch validator set');
     }
+    const validators: ValidatorInfo[] = data.data || [];
 
-    return data.data;
+    return {
+      validators,
+      total_voting_power: validators.reduce((sum: number, v: ValidatorInfo) => sum + (v.voting_power ?? 0), 0),
+      block_height: 0,
+    };
   }, [config]);
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(

@@ -3,6 +3,7 @@ import useSWR, { mutate as globalMutate, SWRConfiguration } from 'swr';
 import { PrivacyOperations } from '@willow-network/sdk';
 import type { EncryptedKeyGrant } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
+import { apiFetch } from '../internal/apiFetch';
 
 // Re-export the canonical EncryptedKeyGrant type from @willow-network/sdk
 export type { EncryptedKeyGrant } from '@willow-network/sdk';
@@ -82,10 +83,13 @@ export function useKeyGrant(
       return null;
     }
 
-    const url = `${config.apiUrl}/key-grants/${encodeURIComponent(subgroveId)}/${encodeURIComponent(did)}`;
-    const headers = client.auth.getAuthHeaders('GET', `/key-grants/${subgroveId}/${did}`);
-
-    const response = await fetch(url, { headers });
+    // Signed over the encoded path as sent: the API verifies the path it got.
+    const response = await apiFetch(
+      client,
+      config.apiUrl,
+      `/key-grants/${encodeURIComponent(subgroveId)}/${encodeURIComponent(did)}`,
+      'older',
+    );
     if (!response.ok) {
       if (response.status === 404) {
         return null;
@@ -166,10 +170,12 @@ export function useKeyGrantees(
       return [];
     }
 
-    const url = `${config.apiUrl}/key-grants/${encodeURIComponent(subgroveId)}`;
-    const headers = client.auth.getAuthHeaders('GET', `/key-grants/${subgroveId}`);
-
-    const response = await fetch(url, { headers });
+    const response = await apiFetch(
+      client,
+      config.apiUrl,
+      `/key-grants/${encodeURIComponent(subgroveId)}`,
+      'older',
+    );
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || `Failed to list key grantees: ${response.statusText}`);
