@@ -5,6 +5,7 @@ import {
   BroadcastResult,
 } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
+import { consensusSigner, requireIdentitySigner } from '../internal/signing';
 
 // Types for subgrove (matching Rust SDK)
 import type { RetentionWindow } from './useIndexing';
@@ -127,7 +128,12 @@ export function useDidPermissions(did: string | null, options?: SWRConfiguration
 }
 
 /**
- * Hook for subgrove registration (mutations)
+ * Hook for subgrove registration (mutations).
+ *
+ * `registerDataset` and `deregisterSubgrove` send RegisterSubgrove and
+ * DeregisterSubgrove transactions owned by the client's identity and signed
+ * with its own algorithm (Ed25519 or secp256k1). Both throw
+ * `Not authenticated` without an identity.
  */
 export function useRegistration() {
   const { client, isAuthenticated } = useWillow();
@@ -146,7 +152,30 @@ export function useRegistration() {
     setError(null);
 
     try {
-      const result = await client.registerDataset(request);
+      // The request's access lists become a DataStorage mode; the identity
+      // owns the subgrove.
+      const signer = requireIdentitySigner(client);
+      const result = await client.consensus.registerSubgrove(
+        request.dataset_id,
+        JSON.stringify(request.schema ?? {}),
+        signer.did,
+        consensusSigner(signer),
+        {
+          name: request.name,
+          mode: {
+            DataStorage: {
+              name: request.name,
+              writers: request.writers,
+              free_readers: request.readers,
+            },
+          },
+        },
+      );
+      if (!result.success) {
+        throw new Error(
+          `registerSubgrove failed: ${result.errorMessage ?? result.rawLog ?? 'unknown'}`,
+        );
+      }
       return result;
     } catch (err) {
       setError(err as Error);
@@ -171,7 +200,12 @@ export function useRegistration() {
     setError(null);
 
     try {
-      const result = await client.deregisterSubgrove(subgroveId);
+      const signer = requireIdentitySigner(client);
+      const result = await client.consensus.deregisterSubgrove(
+        subgroveId,
+        signer.did,
+        consensusSigner(signer),
+      );
       return result.txHash ?? '';
     } catch (err) {
       setError(err as Error);

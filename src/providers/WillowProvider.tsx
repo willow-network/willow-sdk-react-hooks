@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { WillowClient, WillowConfig, DidDocument, ProofVerificationOptions } from '@willow-network/sdk';
+import type { SignatureAlgorithm } from '@willow-network/sdk';
 
 interface WillowContextValue {
   client: WillowClient | null;
@@ -8,8 +9,26 @@ interface WillowContextValue {
   hasIdentity: boolean;
   isLoading: boolean;
   error: Error | null;
-  initialize: (privateKey?: string, publicKeyId?: string) => Promise<void>;
-  setIdentity: (did: string, privateKey: string, publicKeyId: string) => void;
+  /**
+   * Set the identity from the config's DID. Without `publicKeyId`, the key id
+   * and algorithm come from the DID's on-chain document.
+   */
+  initialize: (
+    privateKey?: string,
+    publicKeyId?: string,
+    algorithm?: SignatureAlgorithm,
+  ) => Promise<void>;
+  /**
+   * Set the identity requests and transactions are signed as. Pass
+   * `algorithm` for a secp256k1 key not in the `0x`-prefixed form; without
+   * it the SDK infers the algorithm from the DID and the key's form.
+   */
+  setIdentity: (
+    did: string,
+    privateKey: string,
+    publicKeyId: string,
+    algorithm?: SignatureAlgorithm,
+  ) => void;
   clearIdentity: () => void;
   registerDid: (didDocument: DidDocument) => Promise<DidDocument>;
 }
@@ -44,14 +63,18 @@ export function WillowProvider({ config, children, autoConnect = false, proofVer
     }
   }, [config.apiUrl, config.did, proofVerificationOptions]); // Only recreate if these change
 
-  const initialize = useCallback(async (privateKey?: string, publicKeyId?: string) => {
+  const initialize = useCallback(async (
+    privateKey?: string,
+    publicKeyId?: string,
+    algorithm?: SignatureAlgorithm,
+  ) => {
     if (!client) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      await client.init(privateKey, publicKeyId);
+      await client.init(privateKey, publicKeyId, algorithm);
     } catch (err) {
       setError(err as Error);
       throw err;
@@ -60,11 +83,20 @@ export function WillowProvider({ config, children, autoConnect = false, proofVer
     }
   }, [client]);
 
-  const setIdentity = useCallback((did: string, privateKey: string, publicKeyId: string) => {
+  const setIdentity = useCallback((
+    did: string,
+    privateKey: string,
+    publicKeyId: string,
+    algorithm?: SignatureAlgorithm,
+  ) => {
     if (!client) {
       throw new Error('Client not initialized');
     }
-    client.auth.setIdentity(did, privateKey, publicKeyId);
+    if (algorithm) {
+      client.auth.setIdentity(did, privateKey, publicKeyId, algorithm);
+    } else {
+      client.auth.setIdentity(did, privateKey, publicKeyId);
+    }
   }, [client]);
 
   const clearIdentity = useCallback(() => {

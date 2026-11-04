@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import useSWR, { mutate, SWRConfiguration } from 'swr';
 import { useWillow } from './useWillow';
+import { fileSigningOptions, requireIdentitySigner } from '../internal/signing';
 
 interface FileManifest {
   file_key: string;
@@ -87,32 +88,44 @@ export function useFileMetadata(
 
 /**
  * Hook for file upload/download/delete mutations.
+ *
+ * `upload` and `deleteFile` send a StoreFileManifest or DeleteFileManifest
+ * transaction signed by the client's identity: its DID is the owner, it signs
+ * with its own algorithm (Ed25519 or secp256k1), and the transaction carries
+ * its next nonce, fetched from the API for each call. Both throw
+ * `Not authenticated` without an identity.
  */
 export function useFileMutations(subgroveId: string) {
-  const { client, isAuthenticated } = useWillow();
+  const { client, config, isAuthenticated } = useWillow();
 
   const upload = useCallback(
     async (
       fileKey: string,
       filename: string,
-      data: Buffer,
+      data: Uint8Array,
       storageNodeEndpoint: string,
     ): Promise<FileManifest> => {
-      if (!client || !isAuthenticated) {
+      if (!client || !config || !isAuthenticated) {
         throw new Error('Not authenticated');
       }
+      const signing = await fileSigningOptions(
+        client,
+        config.apiUrl,
+        requireIdentitySigner(client),
+      );
       const manifest = await client.files.upload(
         subgroveId,
         fileKey,
         filename,
         data,
         storageNodeEndpoint,
+        signing,
       );
       // Invalidate file list cache
       await mutate(['files', subgroveId]);
       return manifest;
     },
-    [client, isAuthenticated, subgroveId],
+    [client, config, isAuthenticated, subgroveId],
   );
 
   const download = useCallback(
@@ -129,15 +142,20 @@ export function useFileMutations(subgroveId: string) {
 
   const deleteFile = useCallback(
     async (fileKey: string): Promise<void> => {
-      if (!client || !isAuthenticated) {
+      if (!client || !config || !isAuthenticated) {
         throw new Error('Not authenticated');
       }
-      await client.files.delete(subgroveId, fileKey);
+      const signing = await fileSigningOptions(
+        client,
+        config.apiUrl,
+        requireIdentitySigner(client),
+      );
+      await client.files.delete(subgroveId, fileKey, signing);
       // Invalidate caches
       await mutate(['files', subgroveId]);
       await mutate(['file-metadata', subgroveId, fileKey]);
     },
-    [client, isAuthenticated, subgroveId],
+    [client, config, isAuthenticated, subgroveId],
   );
 
   return { upload, download, deleteFile };
@@ -145,18 +163,29 @@ export function useFileMutations(subgroveId: string) {
 
 /**
  * Hook for unregistering a storage node.
+ *
+ * The node signs its own removal, so the client's identity must be the
+ * node's DID; the transaction carries that DID's next nonce and is signed
+ * with its own algorithm. Throws `Not authenticated` without an identity.
  */
 export function useUnregisterStorageNode() {
-  const { client, isAuthenticated } = useWillow();
+  const { client, config, isAuthenticated } = useWillow();
 
   const unregisterStorageNode = useCallback(
     async (nodeDid: string): Promise<void> => {
-      if (!client || !isAuthenticated) {
+      if (!client || !config || !isAuthenticated) {
         throw new Error('Not authenticated');
       }
-      await client.files.unregisterStorageNode(nodeDid);
+      const signer = requireIdentitySigner(client);
+      if (signer.did !== nodeDid) {
+        throw new Error(
+          `A storage node signs its own removal: set the identity to ${nodeDid}, not ${signer.did}`,
+        );
+      }
+      const signing = await fileSigningOptions(client, config.apiUrl, signer);
+      await client.files.unregisterStorageNode(nodeDid, signing);
     },
-    [client, isAuthenticated],
+    [client, config, isAuthenticated],
   );
 
   return { unregisterStorageNode };

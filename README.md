@@ -88,7 +88,7 @@ const {
   isLoading,       // Loading state
   error,           // Error state
   initialize,      // Initialize with existing credentials (optional)
-  setIdentity,     // (did, privateKey, publicKeyId) => void
+  setIdentity,     // (did, privateKey, publicKeyId, algorithm?) => void
   clearIdentity,   // Clear the active identity
   registerDid,     // Register a DID document
 } = useWillow();
@@ -102,7 +102,7 @@ Authentication operations.
 const {
   isAuthenticated,
   hasIdentity,
-  setIdentity,         // (did, privateKey, publicKeyId) => void
+  setIdentity,         // (did, privateKey, publicKeyId, algorithm?) => void
   clearIdentity,       // Clear identity (effectively logout)
   generateAndRegister, // Generate keypair, build DID document, register it, and set identity
   isGenerating,        // Loading state for generation
@@ -185,7 +185,7 @@ const { data, documents, isLoading, error, refetch } = useQuery('dataset-id', {
 
 ### `useRegistration()`
 
-Register datasets and deregister subgroves.
+Register datasets and deregister subgroves. Each sends a transaction owned by the active identity and signed by it (see [Transaction signing](#transaction-signing)); `owner_did` in the request is not used.
 
 ```tsx
 const { registerDataset, deregisterSubgrove, isRegistering, error } = useRegistration();
@@ -227,6 +227,8 @@ if (proof) {
 
 Reads live on `useFiles`; uploads/downloads/deletes live on `useFileMutations`.
 
+`upload` sends a StoreFileManifest transaction and then the file's chunks to the storage node; `deleteFile` sends a DeleteFileManifest transaction. Both are owned by the active identity and signed by it (see [Transaction signing](#transaction-signing)), and both throw `Not authenticated` without one.
+
 ```tsx
 import { useFiles, useFileMutations } from '@willow-network/react-hooks';
 
@@ -235,7 +237,7 @@ function FileManager() {
   const { upload, download, deleteFile } = useFileMutations('my-subgrove');
 
   const handleUpload = async (file: File) => {
-    const data = Buffer.from(await file.arrayBuffer());
+    const data = new Uint8Array(await file.arrayBuffer());
     await upload(file.name, file.name, data, 'https://storage1.example.com');
   };
 
@@ -249,6 +251,16 @@ function FileManager() {
     </div>
   );
 }
+```
+
+### `useUnregisterStorageNode()`
+
+Remove a storage node. The node signs its own removal, so the active identity must be the node's DID; any other identity throws.
+
+```tsx
+const { unregisterStorageNode } = useUnregisterStorageNode();
+
+await unregisterStorageNode(nodeDid);
 ```
 
 ## Advanced Usage
@@ -300,6 +312,16 @@ const headers = client.auth.signRequestWithNonce('POST', '/query/my-subgrove', b
 ```
 
 `client.auth.signRequest(method, path)` makes the older `{METHOD}:{PATH}:{TIMESTAMP}` form, over the path without its query string. It proves the DID but carries none of its read rights, and it can be replayed with any body until the timestamp expires.
+
+### Transaction signing
+
+The hooks that send transactions (`useFileMutations`' `upload` and `deleteFile`, `useUnregisterStorageNode`, and `useRegistration`) sign them as the active identity, through `@willow-network/sdk`, which builds each transaction's message:
+
+- The identity's DID is the transaction's owner (for `useUnregisterStorageNode`, the node).
+- The signature is made with the identity's own algorithm: Ed25519, or secp256k1 (ECDSA over the Keccak-256 of the message). The algorithm is the one the client's identity signs requests with: the one passed to `setIdentity` or `initialize`, else the key type of the DID document `initialize` resolves, else the one the DID and key imply (a `0x`-prefixed 32-byte key is secp256k1). Pass `algorithm` to `setIdentity` for a secp256k1 key without the prefix.
+- Each transaction carries the identity's next nonce, one above its account's base nonce (`GET /account/:did/nonce`), fetched for each call.
+
+A transaction refused in its block (for example, a delete of a file that does not exist) still spends its nonce. Two transactions sent at once by the same identity get the same nonce, and the second is refused, so send one after the other has landed.
 
 ### Error Handling
 
