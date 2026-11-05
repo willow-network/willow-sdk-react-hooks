@@ -1,8 +1,8 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import useSWR, { mutate as globalMutate, SWRConfiguration } from 'swr';
-import { PrivacyOperations } from '@willow-network/sdk';
 import type { EncryptedKeyGrant } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
+import { privacyOperations } from '../internal/signing';
 import { apiFetch } from '../internal/apiFetch';
 
 // Re-export the canonical EncryptedKeyGrant type from @willow-network/sdk
@@ -264,19 +264,10 @@ export function useGrantKey() {
   const [isGranting, setIsGranting] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const privacy = useMemo(() => {
-    if (!client || !config || !isAuthenticated) return null;
-    const did = client.auth.getDid();
-    const privateKey = client.auth.getPrivateKey();
-    const publicKeyId = client.auth.getPublicKeyId();
-    if (!did || !privateKey || !publicKeyId) return null;
-    return new PrivacyOperations(config.apiUrl, client.auth, privateKey, publicKeyId);
-  }, [client, config, isAuthenticated]);
 
   const grantKey = useCallback(async (params: GrantKeyParams): Promise<void> => {
-    if (!privacy) {
-      throw new Error('Not authenticated');
-    }
+    // Built per call, for the identity set now, signing with its algorithm.
+    const privacy = privacyOperations(client, config?.apiUrl);
 
     setIsGranting(true);
     setError(null);
@@ -295,7 +286,7 @@ export function useGrantKey() {
     } finally {
       setIsGranting(false);
     }
-  }, [privacy]);
+  }, [client, config]);
 
   return {
     grantKey,
@@ -337,19 +328,10 @@ export function useRevokeKey() {
   const [isRevoking, setIsRevoking] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const privacy = useMemo(() => {
-    if (!client || !config || !isAuthenticated) return null;
-    const did = client.auth.getDid();
-    const privateKey = client.auth.getPrivateKey();
-    const publicKeyId = client.auth.getPublicKeyId();
-    if (!did || !privateKey || !publicKeyId) return null;
-    return new PrivacyOperations(config.apiUrl, client.auth, privateKey, publicKeyId);
-  }, [client, config, isAuthenticated]);
 
   const revokeKey = useCallback(async (params: RevokeKeyParams): Promise<void> => {
-    if (!privacy) {
-      throw new Error('Not authenticated');
-    }
+    // Built per call, for the identity set now, signing with its algorithm.
+    const privacy = privacyOperations(client, config?.apiUrl);
 
     setIsRevoking(true);
     setError(null);
@@ -368,7 +350,7 @@ export function useRevokeKey() {
     } finally {
       setIsRevoking(false);
     }
-  }, [privacy]);
+  }, [client, config]);
 
   return {
     revokeKey,
@@ -422,19 +404,10 @@ export function useRotateKey() {
   const [isRotating, setIsRotating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const privacy = useMemo(() => {
-    if (!client || !config || !isAuthenticated) return null;
-    const did = client.auth.getDid();
-    const privateKey = client.auth.getPrivateKey();
-    const publicKeyId = client.auth.getPublicKeyId();
-    if (!did || !privateKey || !publicKeyId) return null;
-    return new PrivacyOperations(config.apiUrl, client.auth, privateKey, publicKeyId);
-  }, [client, config, isAuthenticated]);
 
   const rotateKey = useCallback(async (params: RotateKeyParams): Promise<void> => {
-    if (!privacy) {
-      throw new Error('Not authenticated');
-    }
+    // Built per call, for the identity set now, signing with its algorithm.
+    const privacy = privacyOperations(client, config?.apiUrl);
 
     setIsRotating(true);
     setError(null);
@@ -458,7 +431,7 @@ export function useRotateKey() {
     } finally {
       setIsRotating(false);
     }
-  }, [privacy]);
+  }, [client, config]);
 
   return {
     rotateKey,

@@ -88,9 +88,9 @@ const {
   isLoading,       // Loading state
   error,           // Error state
   initialize,      // Initialize with existing credentials (optional)
-  setIdentity,     // (did, privateKey, publicKeyId) => void
+  setIdentity,     // (did, privateKey, publicKeyId, algorithm?) => void
   clearIdentity,   // Clear the active identity
-  registerDid,     // Register a DID document
+  registerDid,     // Send a RegisterDid transaction (the identity must be the DID)
 } = useWillow();
 ```
 
@@ -102,7 +102,7 @@ Authentication operations.
 const {
   isAuthenticated,
   hasIdentity,
-  setIdentity,         // (did, privateKey, publicKeyId) => void
+  setIdentity,         // (did, privateKey, publicKeyId, algorithm?) => void
   clearIdentity,       // Clear identity (effectively logout)
   generateAndRegister, // Generate keypair, build DID document, register it, and set identity
   isGenerating,        // Loading state for generation
@@ -185,7 +185,7 @@ const { data, documents, isLoading, error, refetch } = useQuery('dataset-id', {
 
 ### `useRegistration()`
 
-Register datasets and deregister subgroves.
+Register datasets and deregister subgroves. Each sends a transaction owned by the active identity and signed by it (see [Transaction signing](#transaction-signing)); the request's `owner_did` must be the identity. The chain refuses schema indexes, so a schema declares only its fields' types (`{ version, fields: { name: type }, required_fields }`).
 
 ```tsx
 const { registerDataset, deregisterSubgrove, isRegistering, error } = useRegistration();
@@ -193,16 +193,9 @@ const { registerDataset, deregisterSubgrove, isRegistering, error } = useRegistr
 await registerDataset({
   dataset_id: 'notes',
   name: 'User Notes',
-  dataset_path: ['collections'],
   schema: {
     version: 1,
-    fields: {
-      title: { type: 'string', indexed: true, required: true },
-      content: { type: 'string' },
-    },
-    indexes: [
-      { name: 'by_title', fields: ['title'], unique: false, type: 'hash' },
-    ],
+    fields: { title: 'string', content: 'string' },
     required_fields: ['title'],
   },
   owner_did: myDid,
@@ -227,6 +220,8 @@ if (proof) {
 
 Reads live on `useFiles`; uploads/downloads/deletes live on `useFileMutations`.
 
+`upload` sends a StoreFileManifest transaction and then the file's chunks to the storage node; `deleteFile` sends a DeleteFileManifest transaction. Both are owned by the active identity and signed by it (see [Transaction signing](#transaction-signing)), and both throw `Not authenticated` without one.
+
 ```tsx
 import { useFiles, useFileMutations } from '@willow-network/react-hooks';
 
@@ -235,7 +230,7 @@ function FileManager() {
   const { upload, download, deleteFile } = useFileMutations('my-subgrove');
 
   const handleUpload = async (file: File) => {
-    const data = Buffer.from(await file.arrayBuffer());
+    const data = new Uint8Array(await file.arrayBuffer());
     await upload(file.name, file.name, data, 'https://storage1.example.com');
   };
 
@@ -249,6 +244,16 @@ function FileManager() {
     </div>
   );
 }
+```
+
+### `useUnregisterStorageNode()`
+
+Remove a storage node. The node signs its own removal, so the active identity must be the node's DID; any other identity throws.
+
+```tsx
+const { unregisterStorageNode } = useUnregisterStorageNode();
+
+await unregisterStorageNode(nodeDid);
 ```
 
 ## Advanced Usage
@@ -300,6 +305,18 @@ const headers = client.auth.signRequestWithNonce('POST', '/query/my-subgrove', b
 ```
 
 `client.auth.signRequest(method, path)` makes the older `{METHOD}:{PATH}:{TIMESTAMP}` form, over the path without its query string. It proves the DID but carries none of its read rights, and it can be replayed with any body until the timestamp expires.
+
+### Transaction signing
+
+The hooks that send transactions (`useFileMutations`' `upload` and `deleteFile`, `useUnregisterStorageNode`, `useRegistration`, `useGrantKey`, `useRevokeKey`, and `useRotateKey`) send them through `@willow-network/sdk`, which builds, signs, and numbers each one as the active identity:
+
+- The identity's DID is the transaction's owner (for `useUnregisterStorageNode`, the node; for `registerDataset`, the request's `owner_did` must be the identity).
+- The signature is made with the identity's algorithm (`client.auth.transactionSigner()`): Ed25519, or secp256k1 (ECDSA over the Keccak-256 of the message). Pass the algorithm to `setIdentity` or `initialize` for a secp256k1 key; one guessed from a `0x` key's form signs no transaction (`ALGORITHM_REQUIRED`). `useAuth().generateAndRegister` declares its wallet key secp256k1.
+- The nonce comes from the client's nonce allocator, which takes the lowest free nonce in the chain's window and holds it while the write is in flight, so writes sent together get distinct nonces.
+
+A transaction refused in its block (for example, a delete of a file that does not exist) still spends its nonce. A write that isn't accepted throws the SDK's `TransactionSubmitError`, carrying what was sent, so it can be posted again under the same nonce (`client.consensus.resubmit(error)`); see the SDK's README on nonces.
+
+`registerDid` sends a RegisterDid transaction as the DID being registered and returns the SDK's `BroadcastResult`, so set that identity first. `generateAndRegister` registers the new DID with its own key and sets the identity only once the registration is accepted; the DID must be funded with the registration fee first.
 
 ### Error Handling
 

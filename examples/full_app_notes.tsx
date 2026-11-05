@@ -296,7 +296,6 @@ function SetupScreen({ did, onLogout }: { did: string; onLogout: () => void }) {
       await registerDataset({
         dataset_id: DATASET,
         name: 'Notes',
-        dataset_path: ['collections'],
         schema: {
           version: 1,
           fields: {

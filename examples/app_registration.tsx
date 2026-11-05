@@ -76,7 +76,6 @@ function AuthenticatedContent({
       await registerDataset({
         dataset_id: 'products',
         name: 'Product Catalog',
-        dataset_path: ['collections'],
         schema: {
           version: 1,
           fields: {

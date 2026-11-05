@@ -43,10 +43,15 @@ jest.mock('@willow-network/sdk', () => ({
       signRequest: jest.fn(),
       getAuthHeaders: jest.fn(),
       getDid: jest.fn(),
+      getPrivateKey: jest.fn(),
+      getPublicKeyId: jest.fn(),
+      getAlgorithm: jest.fn(),
     },
     registerDid: jest.fn(),
+    consensus: { registerDid: jest.fn() },
     init: jest.fn(),
   })),
+  writeNotAccepted: jest.fn((what: string, result: any) => new Error(`${what} failed: ${result.errorMessage}`)),
   generateWallet: jest.fn().mockReturnValue({
     privateKey: 'a'.repeat(64),
     publicKey: 'a003201e65e47d578ad9bb17cb1d3590e9f504f55eac6ee40002e3ab9517c49c',
@@ -128,12 +133,12 @@ describe('useAuth', () => {
     expect(identity!.didDocument.id).toBe(ACCEPTANCE_VECTOR_DID);
 
     // Deriving must NOT register or activate — the caller funds `did` first.
-    expect(mockClient.registerDid).not.toHaveBeenCalled();
+    expect(mockClient.consensus.registerDid).not.toHaveBeenCalled();
     expect(mockClient.auth.setIdentity).not.toHaveBeenCalled();
   });
 
   it('should generate and register new DID', async () => {
-    mockClient.registerDid.mockResolvedValueOnce(didDocumentFixture());
+    mockClient.consensus.registerDid.mockResolvedValueOnce({ success: true, txHash: 'AB' });
     mockClient.auth.hasIdentity.mockReturnValue(true);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
@@ -146,17 +151,22 @@ describe('useAuth', () => {
       expect(authResult.didDocument.id).toBe(ACCEPTANCE_VECTOR_DID);
     });
 
-    expect(mockClient.registerDid).toHaveBeenCalled();
+    // Registered as the new DID with its own key; the client's identity isn't used.
+    expect(mockClient.consensus.registerDid).toHaveBeenCalledWith(expect.objectContaining({ id: ACCEPTANCE_VECTOR_DID }), {
+      privateKey: 'a'.repeat(64),
+      publicKeyId: ACCEPTANCE_VECTOR_KEY_ID,
+    });
+    // A generated wallet key is secp256k1, declared so the SDK signs with it.
     expect(mockClient.auth.setIdentity).toHaveBeenCalledWith(
       ACCEPTANCE_VECTOR_DID,
       'a'.repeat(64),
-      ACCEPTANCE_VECTOR_KEY_ID
+      ACCEPTANCE_VECTOR_KEY_ID,
+      'secp256k1'
     );
   });
 
-  it('registers before activating identity (pre-fund → register → activate order)', async () => {
-    mockClient.registerDid.mockResolvedValueOnce(didDocumentFixture());
-    mockClient.auth.hasIdentity.mockReturnValue(true);
+  it('sets the new identity only once the registration is accepted', async () => {
+    mockClient.consensus.registerDid.mockResolvedValueOnce({ success: true, txHash: 'AB' });
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -164,11 +174,23 @@ describe('useAuth', () => {
       await result.current.generateAndRegister();
     });
 
-    // registerDid (fee paid from the funded id) must precede setIdentity.
-    const registerOrder = mockClient.registerDid.mock.invocationCallOrder[0];
-    const setIdentityOrder =
-      mockClient.auth.setIdentity.mock.invocationCallOrder[0];
+    const registerOrder = mockClient.consensus.registerDid.mock.invocationCallOrder[0];
+    const setIdentityOrder = mockClient.auth.setIdentity.mock.invocationCallOrder[0];
     expect(registerOrder).toBeLessThan(setIdentityOrder);
+  });
+
+  it.each([
+    ['refused', () => mockClient.consensus.registerDid.mockResolvedValueOnce({ success: false, errorMessage: 'not funded' })],
+    ['failed', () => mockClient.consensus.registerDid.mockRejectedValueOnce(new Error('not funded'))],
+  ])('leaves the identity as it was when the registration is %s', async (_name, arrange) => {
+    arrange();
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await act(async () => {
+      await expect(result.current.generateAndRegister()).rejects.toThrow('not funded');
+    });
+
+    expect(mockClient.auth.setIdentity).not.toHaveBeenCalled();
   });
 
   it('should handle clearIdentity', () => {
@@ -197,7 +219,7 @@ describe('useAuth', () => {
     const registerPromise = new Promise((resolve) => {
       resolveRegister = resolve;
     });
-    mockClient.registerDid.mockReturnValueOnce(registerPromise);
+    mockClient.consensus.registerDid.mockReturnValueOnce(registerPromise);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -211,7 +233,7 @@ describe('useAuth', () => {
     expect(result.current.isGenerating).toBe(true);
 
     await act(async () => {
-      resolveRegister!(didDocumentFixture());
+      resolveRegister!({ success: true, txHash: 'AB' });
       await generatePromise!;
     });
 

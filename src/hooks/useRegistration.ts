@@ -127,7 +127,12 @@ export function useDidPermissions(did: string | null, options?: SWRConfiguration
 }
 
 /**
- * Hook for subgrove registration (mutations)
+ * Hook for subgrove registration (mutations).
+ *
+ * `registerDataset` and `deregisterSubgrove` send RegisterSubgrove and
+ * DeregisterSubgrove transactions owned by the client's identity and signed
+ * with its own algorithm (Ed25519 or secp256k1). Both throw
+ * `Not authenticated` without an identity.
  */
 export function useRegistration() {
   const { client, isAuthenticated } = useWillow();
@@ -138,7 +143,7 @@ export function useRegistration() {
   const registerDataset = useCallback(async (
     request: RegisterDatasetRequest
   ): Promise<BroadcastResult> => {
-    if (!client || !isAuthenticated) {
+    if (!client || !client.auth.hasIdentity()) {
       throw new Error('Not authenticated');
     }
 
@@ -146,7 +151,11 @@ export function useRegistration() {
     setError(null);
 
     try {
-      const result = await client.registerDataset(request);
+      // The SDK builds, checks, and signs the RegisterSubgrove transaction
+      // (its schema in the chain's shape, the access lists as a DataStorage
+      // mode) and throws a TransactionSubmitError if it isn't accepted. The
+      // request's owner_did must be the identity.
+      const result = await client.registerSubgrove(request);
       return result;
     } catch (err) {
       setError(err as Error);
@@ -163,7 +172,7 @@ export function useRegistration() {
   const deregisterSubgrove = useCallback(async (
     subgroveId: string
   ): Promise<string> => {
-    if (!client || !isAuthenticated) {
+    if (!client || !client.auth.hasIdentity()) {
       throw new Error('Not authenticated');
     }
 
@@ -171,6 +180,7 @@ export function useRegistration() {
     setError(null);
 
     try {
+      // Throws a TransactionSubmitError when the transaction isn't accepted.
       const result = await client.deregisterSubgrove(subgroveId);
       return result.txHash ?? '';
     } catch (err) {
