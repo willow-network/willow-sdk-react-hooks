@@ -5,7 +5,6 @@ import {
   BroadcastResult,
 } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
-import { consensusSigner, requireIdentitySigner } from '../internal/signing';
 
 // Types for subgrove (matching Rust SDK)
 import type { RetentionWindow } from './useIndexing';
@@ -152,30 +151,11 @@ export function useRegistration() {
     setError(null);
 
     try {
-      // The request's access lists become a DataStorage mode; the identity
-      // owns the subgrove.
-      const signer = requireIdentitySigner(client);
-      const result = await client.consensus.registerSubgrove(
-        request.dataset_id,
-        JSON.stringify(request.schema ?? {}),
-        signer.did,
-        consensusSigner(signer),
-        {
-          name: request.name,
-          mode: {
-            DataStorage: {
-              name: request.name,
-              writers: request.writers,
-              free_readers: request.readers,
-            },
-          },
-        },
-      );
-      if (!result.success) {
-        throw new Error(
-          `registerSubgrove failed: ${result.errorMessage ?? result.rawLog ?? 'unknown'}`,
-        );
-      }
+      // The SDK builds, checks, and signs the RegisterSubgrove transaction
+      // (its schema in the chain's shape, the access lists as a DataStorage
+      // mode) and throws a TransactionSubmitError if it isn't accepted. The
+      // request's owner_did must be the identity.
+      const result = await client.registerSubgrove(request);
       return result;
     } catch (err) {
       setError(err as Error);
@@ -200,12 +180,8 @@ export function useRegistration() {
     setError(null);
 
     try {
-      const signer = requireIdentitySigner(client);
-      const result = await client.consensus.deregisterSubgrove(
-        subgroveId,
-        signer.did,
-        consensusSigner(signer),
-      );
+      // Throws a TransactionSubmitError when the transaction isn't accepted.
+      const result = await client.deregisterSubgrove(subgroveId);
       return result.txHash ?? '';
     } catch (err) {
       setError(err as Error);

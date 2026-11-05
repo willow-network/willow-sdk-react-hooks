@@ -108,11 +108,7 @@ export function useFileMutations(subgroveId: string) {
       if (!client || !config || !isAuthenticated) {
         throw new Error('Not authenticated');
       }
-      const signing = await fileSigningOptions(
-        client,
-        config.apiUrl,
-        requireIdentitySigner(client),
-      );
+      const signing = fileSigningOptions(requireIdentitySigner(client));
       const manifest = await client.files.upload(
         subgroveId,
         fileKey,
@@ -145,11 +141,7 @@ export function useFileMutations(subgroveId: string) {
       if (!client || !config || !isAuthenticated) {
         throw new Error('Not authenticated');
       }
-      const signing = await fileSigningOptions(
-        client,
-        config.apiUrl,
-        requireIdentitySigner(client),
-      );
+      const signing = fileSigningOptions(requireIdentitySigner(client));
       await client.files.delete(subgroveId, fileKey, signing);
       // Invalidate caches
       await mutate(['files', subgroveId]);
@@ -182,7 +174,7 @@ export function useUnregisterStorageNode() {
           `A storage node signs its own removal: set the identity to ${nodeDid}, not ${signer.did}`,
         );
       }
-      const signing = await fileSigningOptions(client, config.apiUrl, signer);
+      const signing = fileSigningOptions(signer);
       await client.files.unregisterStorageNode(nodeDid, signing);
     },
     [client, config, isAuthenticated],

@@ -43,6 +43,9 @@ jest.mock('@willow-network/sdk', () => ({
       signRequest: jest.fn(),
       getAuthHeaders: jest.fn(),
       getDid: jest.fn(),
+      getPrivateKey: jest.fn(),
+      getPublicKeyId: jest.fn(),
+      getAlgorithm: jest.fn(),
     },
     registerDid: jest.fn(),
     init: jest.fn(),
@@ -147,16 +150,18 @@ describe('useAuth', () => {
     });
 
     expect(mockClient.registerDid).toHaveBeenCalled();
+    // A generated wallet key is secp256k1, declared so the SDK signs with it.
     expect(mockClient.auth.setIdentity).toHaveBeenCalledWith(
       ACCEPTANCE_VECTOR_DID,
       'a'.repeat(64),
-      ACCEPTANCE_VECTOR_KEY_ID
+      ACCEPTANCE_VECTOR_KEY_ID,
+      'secp256k1'
     );
   });
 
-  it('registers before activating identity (pre-fund → register → activate order)', async () => {
+  it('sets the new identity before registering it, since the SDK signs a registration as the DID itself', async () => {
     mockClient.registerDid.mockResolvedValueOnce(didDocumentFixture());
-    mockClient.auth.hasIdentity.mockReturnValue(true);
+    mockClient.auth.hasIdentity.mockReturnValue(false);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -164,11 +169,27 @@ describe('useAuth', () => {
       await result.current.generateAndRegister();
     });
 
-    // registerDid (fee paid from the funded id) must precede setIdentity.
+    const setIdentityOrder = mockClient.auth.setIdentity.mock.invocationCallOrder[0];
     const registerOrder = mockClient.registerDid.mock.invocationCallOrder[0];
-    const setIdentityOrder =
-      mockClient.auth.setIdentity.mock.invocationCallOrder[0];
-    expect(registerOrder).toBeLessThan(setIdentityOrder);
+    expect(setIdentityOrder).toBeLessThan(registerOrder);
+  });
+
+  it('restores the previous identity when the registration fails', async () => {
+    mockClient.registerDid.mockRejectedValueOnce(new Error('not funded'));
+    mockClient.auth.hasIdentity.mockReturnValue(true);
+    mockClient.auth.getDid = jest.fn().mockReturnValue('did:willow:old');
+    mockClient.auth.getPrivateKey = jest.fn().mockReturnValue('b'.repeat(64));
+    mockClient.auth.getPublicKeyId = jest.fn().mockReturnValue('did:willow:old#key-1');
+    mockClient.auth.getAlgorithm = jest.fn().mockReturnValue('Ed25519');
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await act(async () => {
+      await expect(result.current.generateAndRegister()).rejects.toThrow('not funded');
+    });
+
+    const calls = mockClient.auth.setIdentity.mock.calls;
+    expect(calls[calls.length - 1]).toEqual(['did:willow:old', 'b'.repeat(64), 'did:willow:old#key-1', 'Ed25519']);
   });
 
   it('should handle clearIdentity', () => {

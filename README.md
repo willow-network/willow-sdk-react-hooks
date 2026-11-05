@@ -90,7 +90,7 @@ const {
   initialize,      // Initialize with existing credentials (optional)
   setIdentity,     // (did, privateKey, publicKeyId, algorithm?) => void
   clearIdentity,   // Clear the active identity
-  registerDid,     // Register a DID document
+  registerDid,     // Send a RegisterDid transaction (the identity must be the DID)
 } = useWillow();
 ```
 
@@ -185,7 +185,7 @@ const { data, documents, isLoading, error, refetch } = useQuery('dataset-id', {
 
 ### `useRegistration()`
 
-Register datasets and deregister subgroves. Each sends a transaction owned by the active identity and signed by it (see [Transaction signing](#transaction-signing)); `owner_did` in the request is not used.
+Register datasets and deregister subgroves. Each sends a transaction owned by the active identity and signed by it (see [Transaction signing](#transaction-signing)); the request's `owner_did` must be the identity. The chain refuses schema indexes, so a schema declares only its fields' types (`{ version, fields: { name: type }, required_fields }`).
 
 ```tsx
 const { registerDataset, deregisterSubgrove, isRegistering, error } = useRegistration();
@@ -193,16 +193,9 @@ const { registerDataset, deregisterSubgrove, isRegistering, error } = useRegistr
 await registerDataset({
   dataset_id: 'notes',
   name: 'User Notes',
-  dataset_path: ['collections'],
   schema: {
     version: 1,
-    fields: {
-      title: { type: 'string', indexed: true, required: true },
-      content: { type: 'string' },
-    },
-    indexes: [
-      { name: 'by_title', fields: ['title'], unique: false, type: 'hash' },
-    ],
+    fields: { title: 'string', content: 'string' },
     required_fields: ['title'],
   },
   owner_did: myDid,
@@ -315,13 +308,15 @@ const headers = client.auth.signRequestWithNonce('POST', '/query/my-subgrove', b
 
 ### Transaction signing
 
-The hooks that send transactions (`useFileMutations`' `upload` and `deleteFile`, `useUnregisterStorageNode`, and `useRegistration`) sign them as the active identity, through `@willow-network/sdk`, which builds each transaction's message:
+The hooks that send transactions (`useFileMutations`' `upload` and `deleteFile`, `useUnregisterStorageNode`, `useRegistration`, `useGrantKey`, `useRevokeKey`, and `useRotateKey`) send them through `@willow-network/sdk`, which builds, signs, and numbers each one as the active identity:
 
-- The identity's DID is the transaction's owner (for `useUnregisterStorageNode`, the node).
-- The signature is made with the identity's own algorithm: Ed25519, or secp256k1 (ECDSA over the Keccak-256 of the message). The algorithm is the one the client's identity signs requests with: the one passed to `setIdentity` or `initialize`, else the key type of the DID document `initialize` resolves, else the one the DID and key imply (a `0x`-prefixed 32-byte key is secp256k1). Pass `algorithm` to `setIdentity` for a secp256k1 key without the prefix.
-- Each transaction carries the identity's next nonce, one above its account's base nonce (`GET /account/:did/nonce`), fetched for each call.
+- The identity's DID is the transaction's owner (for `useUnregisterStorageNode`, the node; for `registerDataset`, the request's `owner_did` must be the identity).
+- The signature is made with the identity's algorithm (`client.auth.transactionSigner()`): Ed25519, or secp256k1 (ECDSA over the Keccak-256 of the message). Pass the algorithm to `setIdentity` or `initialize` for a secp256k1 key; one guessed from a `0x` key's form signs no transaction (`ALGORITHM_REQUIRED`). `useAuth().generateAndRegister` declares its wallet key secp256k1.
+- The nonce comes from the client's nonce allocator, which takes the lowest free nonce in the chain's window and holds it while the write is in flight, so writes sent together get distinct nonces.
 
-A transaction refused in its block (for example, a delete of a file that does not exist) still spends its nonce. Two transactions sent at once by the same identity get the same nonce, and the second is refused, so send one after the other has landed.
+A transaction refused in its block (for example, a delete of a file that does not exist) still spends its nonce. A write that isn't accepted throws the SDK's `TransactionSubmitError`, carrying what was sent, so it can be posted again under the same nonce (`client.consensus.resubmit(error)`); see the SDK's README on nonces.
+
+`registerDid` sends a RegisterDid transaction as the DID being registered and returns the SDK's `BroadcastResult`, so set that identity first: `generateAndRegister` does (and restores the previous identity if the registration fails). The DID must be funded with the registration fee first.
 
 ### Error Handling
 

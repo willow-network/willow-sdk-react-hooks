@@ -3,11 +3,13 @@ import { renderHook, act } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { bytesToHex } from '@noble/hashes/utils';
 import {
+  NonceAllocator,
   deleteFileManifestSignMessage,
   getEd25519PublicKey,
   signEd25519,
   signSecp256k1,
   storeFileManifestSignMessage,
+  unregisterStorageNodeSignMessage,
   verifyEd25519,
   verifySecp256k1,
 } from '@willow-network/sdk';
@@ -16,11 +18,12 @@ import { WillowProvider } from '../src/providers/WillowProvider';
 import { useWillow } from '../src/hooks/useWillow';
 import { useFileMutations, useUnregisterStorageNode } from '../src/hooks/useFiles';
 import { useRegistration } from '../src/hooks/useRegistration';
+import { useGrantKey, useRevokeKey, useRotateKey } from '../src/hooks/usePrivacy';
 
-// The hooks build no signed messages: @willow-network/sdk does. These check
-// that each transaction the hooks send is signed as the active identity,
-// with its own algorithm and its next nonce, and that without an identity
-// nothing is sent.
+// The hooks build no signed messages and choose no nonces: @willow-network/sdk
+// does. These check that each transaction the hooks send is signed as the
+// active identity, with its own algorithm, under a nonce from the client's
+// allocator, and that without an identity nothing is sent.
 
 const API_URL = 'http://localhost:3031';
 const NODE_URL = 'http://storage.test';
@@ -31,6 +34,16 @@ const ED25519_PUBLIC_KEY = getEd25519PublicKey(SEED);
 // The secp256k1 public key of the same seed, compressed, as in the signed
 // messages' known answers.
 const SECP256K1_PUBLIC_KEY = '02531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337';
+
+// The UnregisterStorageNode known answer (the second set's): node
+// `did:willow:a`, nonce 14, signed with the seed above.
+const UNREGISTER_KAT = {
+  message: 'UnregisterStorageNode\nNode: did:willow:a\nNonce: 14',
+  ed25519:
+    '8fdba5dc2dc7126966ebce1f299cfac82feeb319590ac60da0b8e974e6d171a2a7ccb398d6e28566a222a43cceb76d1cba3cba3124fef230e40a1e8db1f9c60a',
+  secp256k1:
+    'be0d4275d5793d76500277b96ea9629149c251b0474e0502872be294d3f8cc18120f765158b41b9ad9523322fb89fb0b071a01dfd4369b8250dbd9c567a343b3',
+};
 
 // The DeleteFileManifest known answer: subgrove `files-1`, key `photo.png`,
 // owner `did:willow:a`, nonce 11, signed with the seed above.
@@ -50,10 +63,11 @@ interface TestIdentity {
 }
 
 const ED25519: TestIdentity = { name: 'Ed25519', args: [DID, SEED, KEY_ID], algorithm: 'Ed25519' };
-// A `0x`-prefixed 32-byte key is secp256k1, as `generateWallet` makes them.
+// A `0x`-prefixed 32-byte key, as `generateWallet` makes them, declared
+// secp256k1: the SDK signs no transaction with an algorithm it guessed.
 const SECP256K1: TestIdentity = {
   name: 'secp256k1 (0x key)',
-  args: [DID, `0x${SEED}`, KEY_ID],
+  args: [DID, `0x${SEED}`, KEY_ID, 'secp256k1'],
   algorithm: 'secp256k1',
 };
 // An unprefixed secp256k1 key, declared through `setIdentity`'s algorithm.
@@ -111,15 +125,22 @@ function verifies(identity: TestIdentity, message: string, signature: number[]):
     : verifyEd25519(message, hex, ED25519_PUBLIC_KEY);
 }
 
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <SWRConfig value={{ provider: () => new Map() }}>
-    <WillowProvider config={{ apiUrl: API_URL }}>{children}</WillowProvider>
-  </SWRConfig>
-);
+/**
+ * A provider whose client has its own nonce allocator: the SDK's shared one
+ * lives for the process, so holds would carry over from test to test.
+ */
+function makeWrapper() {
+  const config = { apiUrl: API_URL, nonceAllocator: new NonceAllocator() };
+  return ({ children }: { children: React.ReactNode }) => (
+    <SWRConfig value={{ provider: () => new Map() }}>
+      <WillowProvider config={config}>{children}</WillowProvider>
+    </SWRConfig>
+  );
+}
 
 /** Render `hook` under a provider, with `identity` set if one is given. */
 function render<T>(hook: () => T, identity?: TestIdentity) {
-  const rendered = renderHook(() => ({ willow: useWillow(), hook: hook() }), { wrapper });
+  const rendered = renderHook(() => ({ willow: useWillow(), hook: hook() }), { wrapper: makeWrapper() });
   if (identity) {
     act(() => {
       (rendered.result.current.willow.setIdentity as (...a: unknown[]) => void)(...identity.args);
@@ -147,7 +168,7 @@ describe('transactions the hooks send are signed by the identity', () => {
 
   describe('the signing options reach the SDK', () => {
     it.each([ED25519, SECP256K1, SECP256K1_DECLARED])(
-      'useFileMutations().upload passes the $name identity\'s key, sign function, and next nonce',
+      'useFileMutations().upload passes the $name identity\'s key and sign function',
       async (identity) => {
         serve(41);
         const { result, client } = render(() => useFileMutations('files-1'), identity);
@@ -164,11 +185,9 @@ describe('transactions the hooks send are signed by the identity', () => {
           privateKey: identity.args[1],
           publicKeyId: KEY_ID,
           signFunction: identity.algorithm === 'secp256k1' ? signSecp256k1 : signEd25519,
-          nonce: 42,
         });
-        expect(mockFetch.mock.calls.map(([input]) => String(input))).toEqual([
-          `${API_URL}/account/did%3Awillow%3Aa/nonce`,
-        ]);
+        // The nonce is the SDK's to choose: the hook fetched none.
+        expect(mockFetch).not.toHaveBeenCalled();
       },
     );
 
@@ -188,7 +207,6 @@ describe('transactions the hooks send are signed by the identity', () => {
           privateKey: identity.args[1],
           publicKeyId: KEY_ID,
           signFunction: identity.algorithm === 'secp256k1' ? signSecp256k1 : signEd25519,
-          nonce: 11,
         });
       },
     );
@@ -211,7 +229,6 @@ describe('transactions the hooks send are signed by the identity', () => {
           privateKey: identity.args[1],
           publicKeyId: KEY_ID,
           signFunction: identity.algorithm === 'secp256k1' ? signSecp256k1 : signEd25519,
-          nonce: 14,
         });
       },
     );
@@ -221,46 +238,83 @@ describe('transactions the hooks send are signed by the identity', () => {
       async (identity) => {
         const { result, client } = render(() => useRegistration(), identity);
         const register = jest
-          .spyOn(client().consensus, 'registerSubgrove')
+          .spyOn(client(), 'registerSubgrove')
           .mockResolvedValue({ success: true, txHash: 'AB12' });
         const deregister = jest
-          .spyOn(client().consensus, 'deregisterSubgrove')
+          .spyOn(client(), 'deregisterSubgrove')
           .mockResolvedValue({ success: true, txHash: 'CD34' });
-        const signer = {
-          privateKey: identity.args[1],
-          publicKeyId: KEY_ID,
-          signFunction: identity.algorithm === 'secp256k1' ? signSecp256k1 : signEd25519,
+        const request = {
+          dataset_id: 'notes',
+          name: 'Notes',
+          schema: { version: 1, fields: {} } as any,
+          owner_did: DID,
+          writers: [DID],
+          readers: [],
         };
 
         await act(async () => {
-          await result.current.hook.registerDataset({
-            dataset_id: 'notes',
-            name: 'Notes',
-            schema: { version: 1, fields: {} } as any,
-            owner_did: 'did:willow:someone-else',
-            writers: [DID],
-            readers: [],
-          });
+          await result.current.hook.registerDataset(request);
         });
         let txHash = '';
         await act(async () => {
           txHash = await result.current.hook.deregisterSubgrove('notes');
         });
 
-        expect(register).toHaveBeenCalledWith(
-          'notes',
-          JSON.stringify({ version: 1, fields: {} }),
-          DID,
-          signer,
-          {
-            name: 'Notes',
-            mode: { DataStorage: { name: 'Notes', writers: [DID], free_readers: [] } },
-          },
-        );
-        expect(deregister).toHaveBeenCalledWith('notes', DID, signer);
+        // The SDK's own builders sign as the identity (see the SDK's tests).
+        expect(register).toHaveBeenCalledWith(request);
+        expect(deregister).toHaveBeenCalledWith('notes');
         expect(txHash).toBe('CD34');
       },
     );
+
+    it('useRegistration refuses a registration owned by another DID, and sends nothing', async () => {
+      serve(5);
+      const { result } = render(() => useRegistration(), ED25519);
+      await act(async () => {
+        await expect(
+          result.current.hook.registerDataset({
+            dataset_id: 'notes',
+            name: 'Notes',
+            schema: { version: 1, fields: {} } as any,
+            owner_did: 'did:willow:someone-else',
+            writers: [],
+            readers: [],
+          }),
+        ).rejects.toThrow(/owner/);
+      });
+      expect(submitted()).toEqual([]);
+    });
+
+    it('useRegistration sends a RegisterSubgrove signed by the identity under the allocator\'s nonce', async () => {
+      serve(5);
+      const { result } = render(() => useRegistration(), ED25519);
+      await act(async () => {
+        await result.current.hook.registerDataset({
+          dataset_id: 'notes',
+          name: 'Notes',
+          schema: { version: 1, fields: { title: 'string' } } as any,
+          owner_did: DID,
+          writers: [DID],
+          readers: [],
+        });
+      });
+      const [wrapper] = submitted();
+      const tx = wrapper.RegisterSubgrove;
+      expect(tx.owner_did).toBe(DID);
+      expect(tx.nonce).toBe(6);
+      expect(tx.public_key_id).toBe(KEY_ID);
+      expect(tx.signature).toHaveLength(64);
+    });
+
+    it('useRegistration.deregisterSubgrove throws when the chain refuses it', async () => {
+      const { result, client } = render(() => useRegistration(), ED25519);
+      jest
+        .spyOn(client().consensus, 'deregisterSubgrove')
+        .mockResolvedValue({ success: false, errorMessage: 'Invalid nonce: 6 already used (replay)' });
+      await act(async () => {
+        await expect(result.current.hook.deregisterSubgrove('notes')).rejects.toThrow(/already used/);
+      });
+    });
 
     it('useRegistration throws when the chain refuses the registration', async () => {
       const { result, client } = render(() => useRegistration(), ED25519);
@@ -273,13 +327,23 @@ describe('transactions the hooks send are signed by the identity', () => {
           result.current.hook.registerDataset({
             dataset_id: 'notes',
             name: 'Notes',
-            schema: {} as any,
+            schema: { version: 1, fields: {} } as any,
             owner_did: DID,
             writers: [],
             readers: [],
           }),
-        ).rejects.toThrow('registerSubgrove failed: subgrove exists');
+        ).rejects.toThrow(/subgrove exists/);
       });
+    });
+
+    it('a 0x key whose algorithm was guessed signs no transaction', async () => {
+      serve(5);
+      const guessed: TestIdentity = { name: 'guessed', args: [DID, `0x${SEED}`, KEY_ID], algorithm: 'secp256k1' };
+      const { result } = render(() => useFileMutations('files-1'), guessed);
+      await act(async () => {
+        await expect(result.current.hook.deleteFile('photo.png')).rejects.toThrow(/guessed/);
+      });
+      expect(submitted()).toEqual([]);
     });
   });
 
@@ -292,8 +356,11 @@ describe('transactions the hooks send are signed by the identity', () => {
       const upload = jest.spyOn(files.client().files, 'upload');
       const del = jest.spyOn(files.client().files, 'delete');
       const unregister = jest.spyOn(node.client().files, 'unregisterStorageNode');
-      const register = jest.spyOn(registration.client().consensus, 'registerSubgrove');
-      const deregister = jest.spyOn(registration.client().consensus, 'deregisterSubgrove');
+      const register = jest.spyOn(registration.client(), 'registerSubgrove');
+      const deregister = jest.spyOn(registration.client(), 'deregisterSubgrove');
+      const grant = render(() => useGrantKey());
+      const revoke = render(() => useRevokeKey());
+      const rotate = render(() => useRotateKey());
 
       await act(async () => {
         await expect(
@@ -320,6 +387,23 @@ describe('transactions the hooks send are signed by the identity', () => {
         );
       });
 
+      await act(async () => {
+        await expect(
+          grant.result.current.hook.grantKey({ subgroveId: 'sg', encryptedKeyGrant: {} as any }),
+        ).rejects.toThrow('Not authenticated');
+      });
+      await act(async () => {
+        await expect(
+          revoke.result.current.hook.revokeKey({ subgroveId: 'sg', revokeeDid: 'did:willow:b' }),
+        ).rejects.toThrow('Not authenticated');
+      });
+      await act(async () => {
+        await expect(
+          rotate.result.current.hook.rotateKey({ subgroveId: 'sg', newEpoch: 1, newGrants: [] }),
+        ).rejects.toThrow('Not authenticated');
+      });
+
+      expect(submitted()).toEqual([]);
       for (const spy of [upload, del, unregister, register, deregister]) {
         expect(spy).not.toHaveBeenCalled();
       }
@@ -412,9 +496,12 @@ describe('transactions the hooks send are signed by the identity', () => {
       expect(bytesToHex(Uint8Array.from(tx.signature))).toBe(signature);
     });
 
-    it('the UnregisterStorageNode sent carries the node identity\'s key id, nonce, and a signature', async () => {
+    it.each([
+      [ED25519, UNREGISTER_KAT.ed25519],
+      [SECP256K1, UNREGISTER_KAT.secp256k1],
+    ] as const)('the UnregisterStorageNode sent as the %s node identity is the known answer', async (identity, signature) => {
       serve(13);
-      const { result } = render(() => useUnregisterStorageNode(), ED25519);
+      const { result } = render(() => useUnregisterStorageNode(), identity);
 
       await act(async () => {
         await result.current.hook.unregisterStorageNode(DID);
@@ -425,7 +512,10 @@ describe('transactions the hooks send are signed by the identity', () => {
       expect(tx.node_did).toBe(DID);
       expect(tx.public_key_id).toBe(KEY_ID);
       expect(tx.nonce).toBe(14);
-      expect(tx.signature).toHaveLength(64);
+      expect(unregisterStorageNodeSignMessage({ nodeDid: tx.node_did, nonce: tx.nonce })).toBe(
+        UNREGISTER_KAT.message,
+      );
+      expect(bytesToHex(Uint8Array.from(tx.signature))).toBe(signature);
     });
 
     it('useUnregisterStorageNode refuses an identity other than the node', async () => {
@@ -440,27 +530,12 @@ describe('transactions the hooks send are signed by the identity', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it.each([2 ** 53 - 1, 2 ** 53, 2 ** 64])(
-      'a base nonce of %d, whose next nonce a JS number cannot hold exactly, is refused',
-      async (base) => {
-        serve(base);
-        const { result } = render(() => useFileMutations('files-1'), ED25519);
-
-        await act(async () => {
-          await expect(result.current.hook.deleteFile('photo.png')).rejects.toThrow(/nonce/);
-        });
-        expect(submitted()).toEqual([]);
-      },
-    );
-
     it('a failed nonce fetch sends nothing', async () => {
       mockFetch.mockResolvedValue(jsonResponse({ success: false, error: 'unavailable' }, 503));
       const { result } = render(() => useFileMutations('files-1'), ED25519);
 
       await act(async () => {
-        await expect(result.current.hook.deleteFile('photo.png')).rejects.toThrow(
-          'Failed to fetch the nonce of did:willow:a: HTTP 503',
-        );
+        await expect(result.current.hook.deleteFile('photo.png')).rejects.toThrow();
       });
       expect(submitted()).toEqual([]);
     });

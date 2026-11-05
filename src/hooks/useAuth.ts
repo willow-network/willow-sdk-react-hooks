@@ -44,7 +44,7 @@ export interface GeneratedIdentity {
  * the returned `did`, then `registerDid(didDocument)` + `setIdentity(...)`.
  */
 export function useAuth() {
-  const { isAuthenticated, hasIdentity, setIdentity, clearIdentity, registerDid } = useWillow();
+  const { client, isAuthenticated, hasIdentity, setIdentity, clearIdentity, registerDid } = useWillow();
   const [isGenerating, setIsGenerating] = useState(false);
 
   /**
@@ -75,12 +75,30 @@ export function useAuth() {
       // Step 1: derive the self-certifying DID (no on-chain call).
       const identity = generateIdentity();
 
-      // Step 3: register. Requires the derived DID (step 2) to be funded
-      // already — the registration fee is paid from the derived id's balance.
-      await registerDid(identity.didDocument);
-
-      // Step 4: activate the identity for per-request signing.
-      setIdentity(identity.did, identity.privateKey, identity.publicKeyId);
+      // Step 3: register. The SDK signs a DID's registration as the DID itself,
+      // so its identity is set first (a generated wallet key is secp256k1). It
+      // requires the derived DID (step 2) to be funded already: the
+      // registration fee is paid from its balance. On failure the previous
+      // identity is restored.
+      const previous = client?.auth.hasIdentity()
+        ? {
+            did: client.auth.getDid()!,
+            privateKey: client.auth.getPrivateKey()!,
+            publicKeyId: client.auth.getPublicKeyId()!,
+            algorithm: client.auth.getAlgorithm(),
+          }
+        : null;
+      setIdentity(identity.did, identity.privateKey, identity.publicKeyId, 'secp256k1');
+      try {
+        await registerDid(identity.didDocument);
+      } catch (err) {
+        if (previous) {
+          setIdentity(previous.did, previous.privateKey, previous.publicKeyId, previous.algorithm);
+        } else {
+          clearIdentity();
+        }
+        throw err;
+      }
 
       return {
         did: identity.did,
@@ -91,7 +109,7 @@ export function useAuth() {
     } finally {
       setIsGenerating(false);
     }
-  }, [generateIdentity, registerDid, setIdentity]);
+  }, [client, generateIdentity, registerDid, setIdentity, clearIdentity]);
 
   return {
     isAuthenticated,
