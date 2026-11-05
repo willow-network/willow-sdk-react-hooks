@@ -105,7 +105,7 @@ export function useFileMutations(subgroveId: string) {
       data: Uint8Array,
       storageNodeEndpoint: string,
     ): Promise<FileManifest> => {
-      if (!client || !config || !isAuthenticated) {
+      if (!client || !config || !client.auth.hasIdentity()) {
         throw new Error('Not authenticated');
       }
       const signing = fileSigningOptions(requireIdentitySigner(client));
@@ -138,7 +138,7 @@ export function useFileMutations(subgroveId: string) {
 
   const deleteFile = useCallback(
     async (fileKey: string): Promise<void> => {
-      if (!client || !config || !isAuthenticated) {
+      if (!client || !config || !client.auth.hasIdentity()) {
         throw new Error('Not authenticated');
       }
       const signing = fileSigningOptions(requireIdentitySigner(client));
@@ -165,7 +165,7 @@ export function useUnregisterStorageNode() {
 
   const unregisterStorageNode = useCallback(
     async (nodeDid: string): Promise<void> => {
-      if (!client || !config || !isAuthenticated) {
+      if (!client || !config || !client.auth.hasIdentity()) {
         throw new Error('Not authenticated');
       }
       const signer = requireIdentitySigner(client);

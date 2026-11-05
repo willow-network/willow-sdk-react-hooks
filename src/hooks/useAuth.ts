@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { generateWallet, createDidFromWallet, DidDocument } from '@willow-network/sdk';
+import { generateWallet, createDidFromWallet, writeNotAccepted, DidDocument } from '@willow-network/sdk';
 import { useWillow } from './useWillow';
 
 /**
@@ -44,7 +44,7 @@ export interface GeneratedIdentity {
  * the returned `did`, then `registerDid(didDocument)` + `setIdentity(...)`.
  */
 export function useAuth() {
-  const { client, isAuthenticated, hasIdentity, setIdentity, clearIdentity, registerDid } = useWillow();
+  const { client, isAuthenticated, hasIdentity, setIdentity, clearIdentity } = useWillow();
   const [isGenerating, setIsGenerating] = useState(false);
 
   /**
@@ -75,30 +75,20 @@ export function useAuth() {
       // Step 1: derive the self-certifying DID (no on-chain call).
       const identity = generateIdentity();
 
-      // Step 3: register. The SDK signs a DID's registration as the DID itself,
-      // so its identity is set first (a generated wallet key is secp256k1). It
-      // requires the derived DID (step 2) to be funded already: the
-      // registration fee is paid from its balance. On failure the previous
-      // identity is restored.
-      const previous = client?.auth.hasIdentity()
-        ? {
-            did: client.auth.getDid()!,
-            privateKey: client.auth.getPrivateKey()!,
-            publicKeyId: client.auth.getPublicKeyId()!,
-            algorithm: client.auth.getAlgorithm(),
-          }
-        : null;
+      // Step 3: register, signed as the new DID with its own key (the SDK
+      // reads the key's algorithm from the document: a generated wallet key is
+      // secp256k1). It requires the derived DID (step 2) to be funded already:
+      // the registration fee is paid from its balance. The client's identity
+      // changes only once the registration is accepted.
+      if (!client) throw new Error('Client not initialized');
+      const result = await client.consensus.registerDid(identity.didDocument, {
+        privateKey: identity.privateKey,
+        publicKeyId: identity.publicKeyId,
+      });
+      if (!result.success) throw writeNotAccepted('registerDid', result);
+
+      // Step 4: activate the identity, declared secp256k1.
       setIdentity(identity.did, identity.privateKey, identity.publicKeyId, 'secp256k1');
-      try {
-        await registerDid(identity.didDocument);
-      } catch (err) {
-        if (previous) {
-          setIdentity(previous.did, previous.privateKey, previous.publicKeyId, previous.algorithm);
-        } else {
-          clearIdentity();
-        }
-        throw err;
-      }
 
       return {
         did: identity.did,
@@ -109,7 +99,7 @@ export function useAuth() {
     } finally {
       setIsGenerating(false);
     }
-  }, [client, generateIdentity, registerDid, setIdentity, clearIdentity]);
+  }, [client, generateIdentity, setIdentity]);
 
   return {
     isAuthenticated,

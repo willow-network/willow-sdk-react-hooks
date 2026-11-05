@@ -316,7 +316,7 @@ The hooks that send transactions (`useFileMutations`' `upload` and `deleteFile`,
 
 A transaction refused in its block (for example, a delete of a file that does not exist) still spends its nonce. A write that isn't accepted throws the SDK's `TransactionSubmitError`, carrying what was sent, so it can be posted again under the same nonce (`client.consensus.resubmit(error)`); see the SDK's README on nonces.
 
-`registerDid` sends a RegisterDid transaction as the DID being registered and returns the SDK's `BroadcastResult`, so set that identity first: `generateAndRegister` does (and restores the previous identity if the registration fails). The DID must be funded with the registration fee first.
+`registerDid` sends a RegisterDid transaction as the DID being registered and returns the SDK's `BroadcastResult`, so set that identity first. `generateAndRegister` registers the new DID with its own key and sets the identity only once the registration is accepted; the DID must be funded with the registration fee first.
 
 ### Error Handling
 

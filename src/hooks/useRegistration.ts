@@ -143,7 +143,7 @@ export function useRegistration() {
   const registerDataset = useCallback(async (
     request: RegisterDatasetRequest
   ): Promise<BroadcastResult> => {
-    if (!client || !isAuthenticated) {
+    if (!client || !client.auth.hasIdentity()) {
       throw new Error('Not authenticated');
     }
 
@@ -172,7 +172,7 @@ export function useRegistration() {
   const deregisterSubgrove = useCallback(async (
     subgroveId: string
   ): Promise<string> => {
-    if (!client || !isAuthenticated) {
+    if (!client || !client.auth.hasIdentity()) {
       throw new Error('Not authenticated');
     }
 
